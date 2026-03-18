@@ -705,7 +705,10 @@ function renderFoodList(data){
 
 async function chgFQty(id,delta,e){
   e.stopPropagation();
-  const d=dayCache[curDate];if(!d)return;
+  // Load from cache or fetch if not available
+  if(!dayCache[curDate]) await loadDayData(curDate);
+  const d=dayCache[curDate];
+  if(!d){showToast('লোড হচ্ছে, আবার চেষ্টা করো');return;}
   if(!d.qty)d.qty={};
   const cur=d.qty[id]||0,next=Math.max(0,cur+delta);
   if(next===0)delete d.qty[id];else d.qty[id]=next;
@@ -829,7 +832,9 @@ function renderWorkoutList(data){
 
 async function chgWQty(id,delta,e){
   e.stopPropagation();
-  const d=dayCache[curDate];if(!d)return;
+  if(!dayCache[curDate]) await loadDayData(curDate);
+  const d=dayCache[curDate];
+  if(!d){showToast('লোড হচ্ছে, আবার চেষ্টা করো');return;}
   if(!d.wqty)d.wqty={};
   const cur=d.wqty[id]||0,next=Math.max(0,cur+delta);
   if(next===0)delete d.wqty[id];else d.wqty[id]=next;
