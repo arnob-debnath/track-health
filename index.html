@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Health Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@300;400;500;600&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- LOADING -->
+<div class="loading" id="loadingScreen">
+  <div class="spinner"></div> লোড হচ্ছে...
+</div>
+
+<!-- AUTH -->
+<div class="auth-wrap" id="authScreen" style="display:none">
+  <div class="auth-box">
+    <div class="auth-logo">Health Tracker</div>
+    <div class="auth-sub">Arnob-er Personal Health Dashboard</div>
+    <div class="auth-tabs">
+      <button class="auth-tab on" onclick="showAuthTab('login')">Login</button>
+      <button class="auth-tab" onclick="showAuthTab('signup')">Sign Up</button>
+    </div>
+
+    <!-- LOGIN -->
+    <div id="loginForm">
+      <div class="fg"><label class="flbl">Email বা Phone</label><input class="finp" id="loginEmail" placeholder="email অথবা +8801XXXXXXXXX" oninput="toggleLoginPass()"></div>
+      <div class="fg" id="loginPassField"><label class="flbl">Password</label><input class="finp" id="loginPass" type="password" placeholder="password">
+        <div style="text-align:right;margin-top:5px"><button onclick="showAuthTab('forgot')" style="background:transparent;border:none;color:var(--blue);font-size:11px;cursor:pointer;font-family:inherit">Password ভুলে গেছো?</button></div>
+      </div>
+      <button class="sbtn primary" onclick="doLogin()" id="loginBtn">Login করো</button>
+      <div class="auth-err" id="loginErr"></div>
+      <div style="text-align:center;margin-top:12px;font-size:12px;color:var(--t3)">Account নেই? <button onclick="showAuthTab('signup')" style="background:transparent;border:none;color:var(--blue);font-size:12px;cursor:pointer;font-family:inherit">Sign Up করো</button></div>
+    </div>
+
+    <!-- SIGNUP -->
+    <div id="signupForm" style="display:none">
+      <div class="fg"><label class="flbl">নাম *</label><input class="finp" id="signupName" placeholder="তোমার নাম"></div>
+      <div class="trow">
+        <button class="tog on" id="togEmail" onclick="setSignupMethod('email')">Email দিয়ে</button>
+        <button class="tog" id="togPhone" onclick="setSignupMethod('phone')">Phone দিয়ে</button>
+      </div>
+      <div id="emailSignupFields">
+        <div class="fg"><label class="flbl">Email</label><input class="finp" id="signupEmail" type="email" placeholder="তোমার email"></div>
+        <div class="fg"><label class="flbl">Password (কমপক্ষে ৬ অক্ষর)</label><input class="finp" id="signupPass" type="password" placeholder="password"></div>
+      </div>
+      <div id="phoneSignupFields" style="display:none">
+        <div class="fg"><label class="flbl">Phone Number</label><input class="finp" id="signupPhone" placeholder="+8801XXXXXXXXX" type="tel"></div>
+        <div style="font-size:11px;color:var(--t3);margin-top:-6px;margin-bottom:8px">Country code সহ দাও। যেমন: +8801712345678</div>
+        <div class="fg"><label class="flbl">Password (কমপক্ষে ৬ অক্ষর)</label><input class="finp" id="signupPhonePass" type="password" placeholder="password দাও"></div>
+      </div>
+      <button class="sbtn primary" onclick="doSignup()" id="signupBtn">Account বানাও</button>
+      <div class="auth-err" id="signupErr"></div>
+      <div class="auth-ok" id="signupOk"></div>
+      <div style="text-align:center;margin-top:12px;font-size:12px;color:var(--t3)">আগেই account আছে? <button onclick="showAuthTab('login')" style="background:transparent;border:none;color:var(--blue);font-size:12px;cursor:pointer;font-family:inherit">Login করো</button></div>
+    </div>
+
+    <!-- OTP VERIFY (Email / Phone) -->
+    <div id="otpForm" style="display:none">
+      <div style="text-align:center;margin-bottom:16px">
+        <div style="font-size:32px;margin-bottom:8px" id="otpIcon">📧</div>
+        <div style="font-size:13px;color:var(--t1);font-weight:500" id="otpTitle">Email verify করো</div>
+        <div style="font-size:12px;color:var(--t3);margin-top:4px" id="otpEmailShow"></div>
+      </div>
+      <div class="fg"><label class="flbl">OTP Code</label><input class="finp" id="otpCode" type="text" placeholder="6-digit code" maxlength="6" style="text-align:center;letter-spacing:6px;font-size:18px;font-family:'DM Mono',monospace"></div>
+      <button class="sbtn primary" onclick="doVerifyOTP()" id="otpBtn">Verify করো</button>
+      <button class="sbtn ghost" style="margin-top:6px" onclick="resendOTP()">OTP আবার পাঠাও</button>
+      <div class="auth-err" id="otpErr"></div>
+      <div class="auth-ok" id="otpOk"></div>
+    </div>
+
+    <!-- FORGOT PASSWORD -->
+    <div id="forgotForm" style="display:none">
+      <div style="text-align:center;margin-bottom:16px">
+        <div style="font-size:32px;margin-bottom:8px">🔑</div>
+        <div style="font-size:13px;color:var(--t1);font-weight:500">Password Reset</div>
+        <div style="font-size:12px;color:var(--t3);margin-top:4px">তোমার email-এ reset link পাঠানো হবে</div>
+      </div>
+      <div class="fg"><label class="flbl">Email</label><input class="finp" id="forgotEmail" type="email" placeholder="তোমার email"></div>
+      <button class="sbtn primary" onclick="doForgotPassword()" id="forgotBtn">Reset Link পাঠাও</button>
+      <button class="sbtn ghost" style="margin-top:6px" onclick="showAuthTab('login')">← ফিরে যাও</button>
+      <div class="auth-err" id="forgotErr"></div>
+      <div class="auth-ok" id="forgotOk"></div>
+    </div>
+
+    <!-- NEW PASSWORD (after reset redirect) -->
+    <div id="newPassForm" style="display:none">
+      <div style="text-align:center;margin-bottom:16px">
+        <div style="font-size:32px;margin-bottom:8px">🔐</div>
+        <div style="font-size:13px;color:var(--t1);font-weight:500">নতুন Password দাও</div>
+      </div>
+      <div class="fg"><label class="flbl">নতুন Password</label><input class="finp" id="newPass" type="password" placeholder="নতুন password (কমপক্ষে ৬ অক্ষর)"></div>
+      <div class="fg"><label class="flbl">আবার দাও</label><input class="finp" id="newPass2" type="password" placeholder="password আবার লিখুন"></div>
+      <button class="sbtn primary" onclick="doUpdatePassword()" id="newPassBtn">Password Update করো</button>
+      <div class="auth-err" id="newPassErr"></div>
+      <div class="auth-ok" id="newPassOk"></div>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="app-wrap" id="appScreen">
+  <header class="hdr">
+    <div class="logo">Health <span>Tracker</span></div>
+    <div class="syncing" id="syncStatus"></div>
+    <nav class="nav">
+      <button class="ntab on" onclick="sv('food')">খাবার</button>
+      <button class="ntab" onclick="sv('workout')">Workout</button>
+      <button class="ntab" onclick="sv('analysis')">Analysis</button>
+      <button class="ntab" onclick="sv('messages')">Messages</button>
+      <button class="ntab" onclick="sv('profile')">Profile</button>
+      <button class="ntab" id="adminNavBtn" style="display:none" onclick="sv('admin')">Admin</button>
+    </nav>
+    <button class="user-btn" id="userBtn" onclick="showUserMenu()">👤</button>
+  </header>
+
+  <main class="main">
+    <!-- FOOD -->
+    <div class="view on" id="v-food">
+      <div class="dnav">
+        <button class="dnavb" onclick="cd(-1)">&#8249;</button>
+        <div><div class="dmain" id="dMain"></div><div class="dsub" id="dSub"></div></div>
+        <div style="display:flex;gap:5px;align-items:center">
+          <button class="tbtn" onclick="goToday()">আজ</button>
+          <button class="dnavb" onclick="cd(1)">&#8250;</button>
+        </div>
+      </div>
+      <div class="mgrid">
+        <div class="mc cal"><div class="mlbl">Calories</div><div class="mval" id="mCal">0</div><div class="mtgt">/ 1850 kcal</div><div class="mbar"><div class="mbf" id="bCal" style="background:var(--purple);width:0%"></div></div></div>
+        <div class="mc pro"><div class="mlbl">Protein</div><div class="mval" id="mPro">0g</div><div class="mtgt">/ 155g</div><div class="mbar"><div class="mbf" id="bPro" style="background:var(--blue);width:0%"></div></div></div>
+        <div class="mc crb"><div class="mlbl">Carbs</div><div class="mval" id="mCarb">0g</div><div class="mtgt">/ 170g</div><div class="mbar"><div class="mbf" id="bCarb" style="background:var(--amber);width:0%"></div></div></div>
+        <div class="mc fat"><div class="mlbl">Fat</div><div class="mval" id="mFat">0g</div><div class="mtgt">/ 55g</div><div class="mbar"><div class="mbf" id="bFat" style="background:var(--green);width:0%"></div></div></div>
+      </div>
+      <div class="wcard">
+        <div class="wcard-top"><div class="wlbl"><b>পানি</b> — লক্ষ্য ৩ লিটার</div><div class="wst" id="wSt">0/3000ml</div></div>
+        <div class="wbtns" id="wBtns"></div>
+      </div>
+      <div class="meal-tabs" id="mealTabs"></div>
+      <div class="toolbar">
+        <div class="srch"><span class="si">⌕</span><input type="text" id="srchF" placeholder="খাবার খুঁজুন..." oninput="renderFoodList()"></div>
+        <button class="addbtn" onclick="openFoodModal()">+ নতুন খাবার</button>
+      </div>
+      <div class="chips" id="fChips"></div>
+      <div id="fList"></div>
+    </div>
+
+    <!-- WORKOUT -->
+    <div class="view" id="v-workout">
+      <div class="dnav">
+        <button class="dnavb" onclick="cd(-1)">&#8249;</button>
+        <div><div class="dmain" id="wdMain"></div><div class="dsub" id="wdSub"></div></div>
+        <div style="display:flex;gap:5px;align-items:center">
+          <button class="tbtn" onclick="goToday()">আজ</button>
+          <button class="dnavb" onclick="cd(1)">&#8250;</button>
+        </div>
+      </div>
+      <div class="wsummary">
+        <div class="wsc"><div class="wsc-val" style="color:var(--red)" id="wBurn">0</div><div class="wsc-lbl">kcal burn</div></div>
+        <div class="wsc"><div class="wsc-val" style="color:var(--blue)" id="wSteps">0</div><div class="wsc-lbl">steps</div></div>
+        <div class="wsc"><div class="wsc-val" style="color:var(--green)" id="wNet">0</div><div class="wsc-lbl">net kcal</div></div>
+        <div class="wsc"><div class="wsc-val" style="color:var(--amber)" id="wMins">0</div><div class="wsc-lbl">মিনিট</div></div>
+      </div>
+      <div class="toolbar">
+        <div class="srch"><span class="si">⌕</span><input type="text" id="srchW" placeholder="Exercise খুঁজুন..." oninput="renderWorkoutList()"></div>
+        <button class="addbtn" onclick="openWorkoutModal()">+ নতুন exercise</button>
+      </div>
+      <div id="wList"></div>
+    </div>
+
+    <!-- ANALYSIS -->
+    <div class="view" id="v-analysis">
+      <div class="ahdr">
+        <div class="pbtns">
+          <button class="pbtn on" onclick="setPeriod('week',this)">সাপ্তাহিক</button>
+          <button class="pbtn" onclick="setPeriod('month',this)">মাসিক</button>
+        </div>
+        <div class="wnav">
+          <button class="wnavb" onclick="shiftP(-1)">&#8249;</button>
+          <span class="plbl" id="pLbl"></span>
+          <button class="wnavb" onclick="shiftP(1)">&#8250;</button>
+        </div>
+      </div>
+      <div id="aContent"></div>
+    </div>
+
+    <!-- MESSAGES -->
+    <div class="view" id="v-messages">
+      <div style="margin-bottom:14px">
+        <div style="font-size:14px;font-weight:500;margin-bottom:4px">Admin-কে message করো</div>
+        <div style="font-size:12px;color:var(--t3)">নতুন food add করার request, suggestion বা যেকোনো comment</div>
+      </div>
+      <div class="msg-form">
+        <div class="msg-type-sel" id="msgTypeChips"></div>
+        <textarea id="msgContent" placeholder="তোমার message লিখো..."></textarea>
+        <button class="sbtn primary" style="margin-top:8px" onclick="sendMessage()">পাঠাও</button>
+      </div>
+      <div id="msgList"></div>
+    </div>
+
+    <!-- PROFILE -->
+    <div class="view" id="v-profile">
+      <div style="max-width:500px;margin:0 auto">
+        <div style="font-size:16px;font-weight:500;margin-bottom:16px">Profile</div>
+
+        <!-- Avatar -->
+        <div style="text-align:center;margin-bottom:20px">
+          <div id="profileAvatar" style="width:80px;height:80px;border-radius:50%;background:var(--gdim);border:2px solid var(--green);display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 10px;cursor:pointer;overflow:hidden" onclick="document.getElementById('avatarInput').click()">
+            <span id="profileAvatarIcon">👤</span>
+            <img id="profileAvatarImg" style="display:none;width:100%;height:100%;object-fit:cover" />
+          </div>
+          <input type="file" id="avatarInput" accept="image/*" style="display:none" onchange="uploadAvatar(event)">
+          <div style="font-size:11px;color:var(--t3)">ছবিতে click করে পরিবর্তন করো</div>
+        </div>
+
+        <!-- Info -->
+        <div style="background:var(--s1);border:1px solid var(--bd);border-radius:var(--rl);padding:16px;margin-bottom:12px">
+          <div style="font-size:11px;color:var(--t2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">Personal Info</div>
+          <div class="fg"><label class="flbl">নাম</label><input class="finp" id="profName" placeholder="তোমার নাম"></div>
+          <div class="fg"><label class="flbl">Email</label><input class="finp" id="profEmail" disabled style="opacity:.5"></div>
+          <div class="fg" id="profPhoneField" style="display:none"><label class="flbl">Phone</label><input class="finp" id="profPhone" disabled style="opacity:.5"></div>
+          <button class="sbtn primary" style="margin-top:4px" onclick="saveProfile()">Save করো</button>
+          <div class="auth-ok" id="profOk" style="margin-top:8px"></div>
+          <div class="auth-err" id="profErr" style="margin-top:8px"></div>
+        </div>
+
+        <!-- Targets -->
+        <div style="background:var(--s1);border:1px solid var(--bd);border-radius:var(--rl);padding:16px;margin-bottom:12px">
+          <div style="font-size:11px;color:var(--t2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">Daily Targets</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="fg"><label class="flbl">Calories</label><input class="finp" id="tgtCal" type="number" placeholder="1850"></div>
+            <div class="fg"><label class="flbl">Protein (g)</label><input class="finp" id="tgtPro" type="number" placeholder="155"></div>
+            <div class="fg"><label class="flbl">Carbs (g)</label><input class="finp" id="tgtCarb" type="number" placeholder="170"></div>
+            <div class="fg"><label class="flbl">Fat (g)</label><input class="finp" id="tgtFat" type="number" placeholder="55"></div>
+          </div>
+          <button class="sbtn primary" style="margin-top:4px" onclick="saveTargets()">Targets Save করো</button>
+        </div>
+
+        <!-- Water notification -->
+        <div style="background:var(--s1);border:1px solid var(--bd);border-radius:var(--rl);padding:16px;margin-bottom:12px">
+          <div style="font-size:11px;color:var(--t2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">Water Notification</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <div>
+              <div style="font-size:13px">প্রতি ৩০ মিনিটে পানির reminder</div>
+              <div style="font-size:11px;color:var(--t3);margin-top:2px">Browser notification চালু থাকতে হবে</div>
+            </div>
+            <button id="notifToggleBtn" onclick="toggleWaterNotif()" style="padding:6px 14px;border-radius:8px;border:1px solid var(--bd2);background:var(--s2);color:var(--t2);font-size:12px;cursor:pointer;font-family:inherit;transition:all .15s">চালু করো</button>
+          </div>
+          <div style="font-size:11px;color:var(--t3)" id="notifStatus">Notification off আছে</div>
+        </div>
+
+        <!-- Change password -->
+        <div style="background:var(--s1);border:1px solid var(--bd);border-radius:var(--rl);padding:16px;margin-bottom:12px">
+          <div style="font-size:11px;color:var(--t2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">Password Change</div>
+          <div class="fg"><label class="flbl">নতুন Password</label><input class="finp" id="profNewPass" type="password" placeholder="নতুন password"></div>
+          <div class="fg"><label class="flbl">আবার দাও</label><input class="finp" id="profNewPass2" type="password" placeholder="confirm password"></div>
+          <button class="sbtn primary" style="margin-top:4px" onclick="changeProfilePass()">Password Change করো</button>
+          <div class="auth-ok" id="profPassOk" style="margin-top:8px"></div>
+          <div class="auth-err" id="profPassErr" style="margin-top:8px"></div>
+        </div>
+
+        <!-- Logout -->
+        <button class="sbtn ghost" onclick="sb.auth.signOut()" style="width:100%;margin-top:4px">Logout করো</button>
+      </div>
+    </div>
+
+    <!-- ADMIN -->
+    <div class="view" id="v-admin">
+      <div class="admin-wrap">
+        <div style="font-size:16px;font-weight:500;margin-bottom:16px;color:var(--green)">Admin Panel</div>
+        <div class="admin-section">
+          <div class="admin-sec-title">User Messages</div>
+          <div id="adminMsgList"></div>
+        </div>
+        <div class="admin-section">
+          <div class="admin-sec-title">Registered Users</div>
+          <div id="adminUserList"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- FOOD MODAL -->
+<div class="overlay" id="foodModal">
+  <div class="modal">
+    <div class="mtitle">নতুন খাবার যোগ করুন <button class="mclose" onclick="closeModal('foodModal')">✕</button></div>
+    <div class="trow">
+      <button class="tog on" id="togH" onclick="setFT('healthy')">✓ Healthy</button>
+      <button class="tog jt" id="togJ" onclick="setFT('junk')">Junk / মিষ্টি</button>
+    </div>
+    <div class="fg"><label class="flbl">খাবারের নাম *</label><input class="finp" id="fname" placeholder="যেমন: ডিমের তরকারি"></div>
+    <div class="fg"><label class="flbl">পরিমাণ label</label><input class="finp" id="fqty" placeholder="যেমন: 1টা (60g)"></div>
+    <div class="fg"><label class="flbl">Category</label>
+      <select class="finp" id="fsec">
+        <option>সকাল</option><option>দুপুর</option><option>বিকেল</option><option>রাত</option>
+        <option>সবজি</option><option>ফল</option><option>বীজ</option><option>দুগ্ধজাত</option>
+        <option>পানীয়</option><option>মিষ্টি</option><option>ভাজা/জাংক</option><option>অন্যান্য</option>
+      </select>
+    </div>
+    <div class="fg4">
+      <div class="fg"><label class="flbl">Calories</label><input class="finp" id="fcal" type="number" min="0" placeholder="0"></div>
+      <div class="fg"><label class="flbl">Protein(g)</label><input class="finp" id="fpro" type="number" min="0" placeholder="0"></div>
+      <div class="fg"><label class="flbl">Carbs(g)</label><input class="finp" id="fcarb" type="number" min="0" placeholder="0"></div>
+      <div class="fg"><label class="flbl">Fat(g)</label><input class="finp" id="ffat" type="number" min="0" placeholder="0"></div>
+    </div>
+    <button class="mbtn primary" onclick="saveFoodItem()">যোগ করুন</button>
+    <button class="mbtn sec" style="margin-top:5px" onclick="closeModal('foodModal')">বাতিল</button>
+  </div>
+</div>
+
+<!-- WORKOUT MODAL -->
+<div class="overlay" id="workoutModal">
+  <div class="modal">
+    <div class="mtitle">নতুন Exercise যোগ করুন <button class="mclose" onclick="closeModal('workoutModal')">✕</button></div>
+    <div class="fg"><label class="flbl">Exercise-এর নাম *</label><input class="finp" id="wname" placeholder="যেমন: Swimming"></div>
+    <div class="fg2">
+      <div class="fg"><label class="flbl">Category</label>
+        <select class="finp" id="wsec">
+          <option>Cardio</option><option>Chest + Belly</option><option>Upper Body</option>
+          <option>Back + Core</option><option>Legs</option><option>Full Body</option><option>অন্যান্য</option>
+        </select>
+      </div>
+      <div class="fg"><label class="flbl">Duration / Sets</label><input class="finp" id="wdur" placeholder="যেমন: 3×12 rep"></div>
+    </div>
+    <div class="fg2">
+      <div class="fg"><label class="flbl">Calorie burn</label><input class="finp" id="wburnI" type="number" min="0" placeholder="0"></div>
+      <div class="fg"><label class="flbl">Steps</label><input class="finp" id="wstepI" type="number" min="0" placeholder="0"></div>
+    </div>
+    <button class="mbtn primary" onclick="saveWorkoutItem()">যোগ করুন</button>
+    <button class="mbtn sec" style="margin-top:5px" onclick="closeModal('workoutModal')">বাতিল</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/config.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/food.js"></script>
+<script src="js/workout.js"></script>
+<script src="js/analysis.js"></script>
+<script src="js/messages.js"></script>
+<script src="js/admin.js"></script>
+<script src="js/profile.js"></script>
+</body>
+</html>
