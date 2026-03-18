@@ -121,7 +121,7 @@ const WORKOUTS=[
 let curUser=null, isAdmin=false, curDate=todayStr();
 let aPeriod='week', pOffset=0, fFilter='all', newFoodJunk=false, curMeal='সব';
 let msgType='suggestion';
-let dayCache={}, customFoodsCache=[], customWorkoutsCache=[];
+let dayCache={}, customFoodsCache=[], customWorkoutsCache=[], globalFoodsCache=[], globalWorkoutsCache=[];
 let openFSec=new Set(SORD), openWSec=new Set(Object.keys(WCOLS));
 let syncTimer=null, signupEmail='';
 
@@ -177,6 +177,10 @@ async function onLogin(user){
   await loadUserProfile();
   await loadCustomFoods();
   await loadCustomWorkouts();
+  // Load global foods/workouts added by admin
+  const[gf,gw]=await Promise.all([loadGlobalFoods(),loadGlobalWorkouts()]);
+  globalFoodsCache=gf;
+  globalWorkoutsCache=gw;
   // Load custom targets
   const tgts=JSON.parse(localStorage.getItem('ht_targets')||'{}');
   if(tgts.cal)T.cal=tgts.cal;
@@ -557,8 +561,8 @@ async function loadCustomWorkouts(){
   const{data}=await sb.from('custom_workouts').select('*').eq('user_id',curUser.id).order('created_at');
   customWorkoutsCache=(data||[]).map(r=>({id:'cw_'+r.id,name:r.name,dur:r.duration_label||'—',burn:r.calories_burned,steps:r.steps,sec:r.category,mins:30,dbId:r.id}));
 }
-function allFoods(){return[...FOODS,...customFoodsCache];}
-function allWorkouts(){return[...WORKOUTS,...customWorkoutsCache];}
+function allFoods(){return[...FOODS,...globalFoodsCache,...customFoodsCache];}
+function allWorkouts(){return[...WORKOUTS,...globalWorkoutsCache,...customWorkoutsCache];}
 
 // ══════════════════════════════════════════// FOOD RENDER
 // ══════════════════════════════════════════
@@ -846,6 +850,10 @@ async function chgWQty(id,delta,e){
   const w=allWorkouts().find(x=>x.id===id);
   if(w){if(next>0)showToast(w.name+' × '+next+' = '+Math.round(w.burn*next)+' kcal burn');}
   await saveWorkout(id,next);
+  // Clear cache and reload
+  delete dayCache[curDate];
+  const fresh=await loadDayData(curDate);
+  updateWorkoutSummary(fresh);renderWorkoutList(fresh);
 }
 
 async function delCW(id,e){
@@ -981,46 +989,170 @@ async function sendMessage(){
   renderMessages();
 }
 
-// ══════════════════════════════════════════// ADMIN PANEL
 // ══════════════════════════════════════════
+// ADMIN PANEL
+// ══════════════════════════════════════════
+let adminTab='messages';
+let globalFoodsCache=[], globalWorkoutsCache=[];
+
 async function renderAdmin(){
-  if(!isAdmin){document.getElementById('aContent').innerHTML='<div class="empty">Access denied</div>';return;}
-  const[{data:msgs},{data:users}]=await Promise.all([
+  if(!isAdmin){showToast('Access denied');return;}
+  const el=document.getElementById('v-admin');
+
+  // Load all data
+  const[{data:msgs},{data:users},{data:gf},{data:gw}]=await Promise.all([
     sb.from('messages').select('*').order('created_at',{ascending:false}),
-    sb.from('profiles').select('*').order('created_at'),
+    sb.from('profiles').select('*').order('created_at',{ascending:false}),
+    sb.from('global_foods').select('*').order('name'),
+    sb.from('global_workouts').select('*').order('name'),
   ]);
-  // Messages
-  const ml=document.getElementById('adminMsgList');
-  if(!msgs||!msgs.length){ml.innerHTML='<div class="empty">কোনো message নেই</div>';}
-  else{
-    ml.innerHTML='<div class="msg-list">'+msgs.map(m=>`
-      <div class="msg-card">
-        <div class="msg-meta">
-          <span class="msg-user">${m.user_name||'Unknown'}</span>
-          <span class="msg-type">${m.type}</span>
-          <span class="msg-time">${new Date(m.created_at).toLocaleDateString('bn-BD')}</span>
-          ${m.is_solved?'<span class="solved-badge" style="margin-left:auto">✓ solved</span>':''}
+  globalFoodsCache=gf||[];
+  globalWorkoutsCache=gw||[];
+
+  el.querySelector('.admin-wrap').innerHTML=`
+    <div style="font-size:16px;font-weight:500;margin-bottom:14px;color:var(--green)">Admin Panel</div>
+
+    <!-- Admin Tabs -->
+    <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
+      ${['messages','users','foods','workouts'].map(t=>`
+        <button onclick="switchAdminTab('${t}')" id="atab_${t}"
+          style="padding:6px 14px;border-radius:8px;border:1px solid var(--bd2);background:${adminTab===t?'var(--gdim)':'transparent'};color:${adminTab===t?'var(--green)':'var(--t2)'};font-size:12px;cursor:pointer;font-family:inherit;transition:all .15s">
+          ${t==='messages'?'Messages'+(msgs?.filter(m=>!m.is_solved).length?' ('+msgs.filter(m=>!m.is_solved).length+')':'')
+            :t==='users'?'Users ('+( users?.length||0)+')'
+            :t==='foods'?'Global Foods'
+            :'Global Workouts'}
+        </button>`).join('')}
+    </div>
+
+    <!-- Messages Tab -->
+    <div id="adminTab_messages" style="display:${adminTab==='messages'?'block':'none'}">
+      ${!msgs||!msgs.length?'<div class="empty">কোনো message নেই</div>':
+        '<div class="msg-list">'+msgs.map(m=>`
+          <div class="msg-card" style="${m.is_suspended?'opacity:.5':''}">
+            <div class="msg-meta">
+              <span class="msg-user">${m.user_name||'Unknown'}</span>
+              <span class="msg-type">${m.type}</span>
+              <span class="msg-time">${new Date(m.created_at).toLocaleDateString('bn-BD')}</span>
+              ${m.is_solved?'<span class="solved-badge" style="margin-left:auto">✓ solved</span>':'<span style="margin-left:auto;font-size:10px;color:var(--amber)">pending</span>'}
+            </div>
+            <div class="msg-content">${m.content}</div>
+            ${m.admin_reply?`<div class="msg-reply"><div class="msg-reply-lbl">Admin reply</div>${m.admin_reply}</div>`:''}
+            ${!m.is_solved?`
+              <textarea class="admin-reply-box" id="reply_${m.id}" placeholder="Reply লিখুন...">${m.admin_reply||''}</textarea>
+              <div style="display:flex;gap:6px;margin-top:6px">
+                <button class="reply-btn" onclick="sendAdminReply('${m.id}')">Reply পাঠাও</button>
+                <button class="solve-btn" onclick="markSolved('${m.id}')">✓ Solved</button>
+              </div>
+            `:''}
+          </div>`).join('')+'</div>'}
+    </div>
+
+    <!-- Users Tab -->
+    <div id="adminTab_users" style="display:${adminTab==='users'?'block':'none'}">
+      <div class="admin-section">
+        ${!users||!users.length?'<div class="empty">কোনো user নেই</div>':
+          users.map(u=>`
+            <div style="background:var(--s2);border-radius:var(--r);padding:12px;margin-bottom:8px;border:1px solid var(--bd)${u.is_suspended?';border-color:rgba(248,113,113,.3)':''}">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                <div style="width:36px;height:36px;border-radius:50%;background:var(--gdim);border:1px solid var(--green);display:flex;align-items:center;justify-content:center;font-size:14px">
+                  ${u.avatar_url?`<img src="${u.avatar_url}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`:'👤'}
+                </div>
+                <div style="flex:1">
+                  <div style="font-size:13px;font-weight:500">${u.name||'—'} ${u.is_admin?'<span class="admin-tag">admin</span>':''} ${u.is_suspended?'<span style="font-size:9px;padding:1px 6px;border-radius:3px;background:var(--rdim);color:var(--red)">suspended</span>':''}</div>
+                  <div style="font-size:11px;color:var(--t3)">${u.phone||'no phone'}</div>
+                </div>
+                <div style="font-size:10px;color:var(--t3);text-align:right">
+                  <div>joined ${new Date(u.created_at).toLocaleDateString('bn-BD')}</div>
+                </div>
+              </div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap">
+                ${!u.is_admin?`
+                  <button onclick="toggleSuspend('${u.id}',${u.is_suspended})"
+                    style="padding:4px 10px;border-radius:6px;border:1px solid ${u.is_suspended?'rgba(74,222,128,.3)':'rgba(248,113,113,.3)'};background:${u.is_suspended?'var(--gdim)':'var(--rdim)'};color:${u.is_suspended?'var(--green)':'var(--red)'};font-size:11px;cursor:pointer;font-family:inherit">
+                    ${u.is_suspended?'Unsuspend':'Suspend'}
+                  </button>
+                  <button onclick="deleteUser('${u.id}','${u.name||'এই user'}')"
+                    style="padding:4px 10px;border-radius:6px;border:1px solid rgba(248,113,113,.3);background:var(--rdim);color:var(--red);font-size:11px;cursor:pointer;font-family:inherit">
+                    Delete
+                  </button>
+                `:'<span style="font-size:11px;color:var(--t3)">Admin user</span>'}
+              </div>
+            </div>`).join('')}
+      </div>
+    </div>
+
+    <!-- Global Foods Tab -->
+    <div id="adminTab_foods" style="display:${adminTab==='foods'?'block':'none'}">
+      <div class="admin-section">
+        <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+          <input class="finp" id="gfName" placeholder="Food নাম *" style="flex:2;min-width:120px">
+          <input class="finp" id="gfQty" placeholder="পরিমাণ label" style="flex:1;min-width:80px">
+          <select class="finp" id="gfSec" style="flex:1;min-width:80px">
+            <option>সকাল</option><option>দুপুর</option><option>বিকেল</option><option>রাত</option>
+            <option>সবজি</option><option>ফল</option><option>বীজ</option><option>দুগ্ধজাত</option>
+            <option>পানীয়</option><option>মিষ্টি</option><option>ভাজা/জাংক</option><option>অন্যান্য</option>
+          </select>
         </div>
-        <div class="msg-content">${m.content}</div>
-        ${m.admin_reply?`<div class="msg-reply"><div class="msg-reply-lbl">Reply (sent)</div>${m.admin_reply}</div>`:''}
-        ${!m.is_solved?`
-          <textarea class="admin-reply-box" id="reply_${m.id}" placeholder="Reply লিখুন...">${m.admin_reply||''}</textarea>
-          <button class="reply-btn" onclick="sendAdminReply('${m.id}')">Reply পাঠাও</button>
-          <button class="solve-btn" onclick="markSolved('${m.id}')">✓ Mark as Solved</button>
-        `:''}
-      </div>`).join('')+'</div>';
-  }
-  // Users
-  const ul=document.getElementById('adminUserList');
-  if(!users||!users.length){ul.innerHTML='<div class="empty">কোনো user নেই</div>';}
-  else{
-    ul.innerHTML=users.map(u=>`
-      <div class="user-row">
-        <div><div class="user-name">${u.name||'—'}</div></div>
-        ${u.is_admin?'<span class="admin-tag">admin</span>':''}
-        <span style="font-size:10px;color:var(--t3)">${new Date(u.created_at).toLocaleDateString('bn-BD')}</span>
-      </div>`).join('');
-  }
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px">
+          <input class="finp" id="gfCal" type="number" placeholder="Cal" min="0">
+          <input class="finp" id="gfPro" type="number" placeholder="Pro(g)" min="0">
+          <input class="finp" id="gfCarb" type="number" placeholder="Carb(g)" min="0">
+          <input class="finp" id="gfFat" type="number" placeholder="Fat(g)" min="0">
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:14px;align-items:center">
+          <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--t2);cursor:pointer">
+            <input type="checkbox" id="gfJunk"> Junk food
+          </label>
+          <button class="reply-btn" onclick="addGlobalFood()">+ Global Food যোগ করো</button>
+        </div>
+        <div style="font-size:11px;color:var(--t2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Current Global Foods (${globalFoodsCache.length})</div>
+        ${globalFoodsCache.length===0?'<div class="empty">কোনো global food নেই</div>':
+          globalFoodsCache.map(f=>`
+            <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;border:1px solid var(--bd);background:var(--s1);margin-bottom:3px">
+              <div style="flex:1">
+                <span style="font-size:12px">${f.name}</span>
+                ${f.is_junk?'<span class="jbadge" style="margin-left:5px">junk</span>':''}
+                <span style="font-size:10px;color:var(--t3);margin-left:6px">${f.category} • ${f.calories}kcal</span>
+              </div>
+              <button onclick="deleteGlobalFood('${f.id}')"
+                style="width:22px;height:22px;border-radius:4px;border:none;background:var(--rdim);color:var(--red);cursor:pointer;font-size:12px">✕</button>
+            </div>`).join('')}
+      </div>
+    </div>
+
+    <!-- Global Workouts Tab -->
+    <div id="adminTab_workouts" style="display:${adminTab==='workouts'?'block':'none'}">
+      <div class="admin-section">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+          <input class="finp" id="gwName" placeholder="Exercise নাম *">
+          <select class="finp" id="gwSec">
+            <option>Cardio</option><option>Chest + Belly</option><option>Upper Body</option>
+            <option>Back + Core</option><option>Legs</option><option>Full Body</option><option>অন্যান্য</option>
+          </select>
+          <input class="finp" id="gwDur" placeholder="Duration (যেমন: 3×12)">
+          <input class="finp" id="gwBurn" type="number" placeholder="Calorie burn" min="0">
+          <input class="finp" id="gwSteps" type="number" placeholder="Steps" min="0">
+        </div>
+        <button class="reply-btn" onclick="addGlobalWorkout()" style="margin-bottom:14px">+ Global Workout যোগ করো</button>
+        <div style="font-size:11px;color:var(--t2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Current Global Workouts (${globalWorkoutsCache.length})</div>
+        ${globalWorkoutsCache.length===0?'<div class="empty">কোনো global workout নেই</div>':
+          globalWorkoutsCache.map(w=>`
+            <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;border:1px solid var(--bd);background:var(--s1);margin-bottom:3px">
+              <div style="flex:1">
+                <span style="font-size:12px">${w.name}</span>
+                <span style="font-size:10px;color:var(--t3);margin-left:6px">${w.category} • ${w.calories_burned}kcal burn</span>
+              </div>
+              <button onclick="deleteGlobalWorkout('${w.id}')"
+                style="width:22px;height:22px;border-radius:4px;border:none;background:var(--rdim);color:var(--red);cursor:pointer;font-size:12px">✕</button>
+            </div>`).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function switchAdminTab(t){
+  adminTab=t;
+  renderAdmin();
 }
 
 async function sendAdminReply(msgId){
@@ -1029,9 +1161,108 @@ async function sendAdminReply(msgId){
   await sb.from('messages').update({admin_reply:reply}).eq('id',msgId);
   showToast('Reply পাঠানো হয়েছে');renderAdmin();
 }
+
 async function markSolved(msgId){
   await sb.from('messages').update({is_solved:true,status:'solved'}).eq('id',msgId);
   showToast('Solved mark করা হয়েছে');renderAdmin();
+}
+
+async function toggleSuspend(userId,isSuspended){
+  const msg=isSuspended?'এই user-কে unsuspend করবেন?':'এই user-কে suspend করবেন?';
+  if(!confirm(msg))return;
+  await sb.from('profiles').update({is_suspended:!isSuspended}).eq('id',userId);
+  showToast(isSuspended?'User unsuspend হয়েছে':'User suspend হয়েছে');
+  renderAdmin();
+}
+
+async function deleteUser(userId,name){
+  if(!confirm(`"${name}" কে permanently delete করবেন? এটা undo করা যাবে না!`))return;
+  if(!confirm('আপনি কি সত্যিই নিশ্চিত?'))return;
+  // Delete all user data
+  await Promise.all([
+    sb.from('food_logs').delete().eq('user_id',userId),
+    sb.from('workout_logs').delete().eq('user_id',userId),
+    sb.from('water_logs').delete().eq('user_id',userId),
+    sb.from('custom_foods').delete().eq('user_id',userId),
+    sb.from('custom_workouts').delete().eq('user_id',userId),
+    sb.from('messages').delete().eq('user_id',userId),
+  ]);
+  await sb.from('profiles').delete().eq('id',userId);
+  showToast('User delete হয়েছে');
+  renderAdmin();
+}
+
+async function addGlobalFood(){
+  const name=document.getElementById('gfName').value.trim();
+  if(!name){showToast('Food নাম দিন');return;}
+  const{error}=await sb.from('global_foods').insert({
+    name,
+    quantity_label:document.getElementById('gfQty').value||'1 serving',
+    category:document.getElementById('gfSec').value,
+    calories:+document.getElementById('gfCal').value||0,
+    protein:+document.getElementById('gfPro').value||0,
+    carbs:+document.getElementById('gfCarb').value||0,
+    fat:+document.getElementById('gfFat').value||0,
+    is_junk:document.getElementById('gfJunk').checked,
+    created_by:curUser.id
+  });
+  if(error){showToast('Error: '+error.message);return;}
+  showToast('"'+name+'" global food-এ যোগ হয়েছে');
+  // Clear food input fields
+  ['gfName','gfQty','gfCal','gfPro','gfCarb','gfFat'].forEach(id=>{
+    const el=document.getElementById(id); if(el)el.value='';
+  });
+  renderAdmin();
+}
+
+async function deleteGlobalFood(id){
+  if(!confirm('এই global food মুছে ফেলবেন?'))return;
+  await sb.from('global_foods').delete().eq('id',id);
+  showToast('Global food মুছে ফেলা হয়েছে');
+  renderAdmin();
+}
+
+async function addGlobalWorkout(){
+  const name=document.getElementById('gwName').value.trim();
+  if(!name){showToast('Exercise নাম দিন');return;}
+  const{error}=await sb.from('global_workouts').insert({
+    name,
+    category:document.getElementById('gwSec').value,
+    duration_label:document.getElementById('gwDur').value||'—',
+    calories_burned:+document.getElementById('gwBurn').value||0,
+    steps:+document.getElementById('gwSteps').value||0,
+    created_by:curUser.id
+  });
+  if(error){showToast('Error: '+error.message);return;}
+  showToast('"'+name+'" global workout-এ যোগ হয়েছে');
+  ['gwName','gwDur','gwBurn','gwSteps'].forEach(id=>{
+    const el=document.getElementById(id); if(el)el.value='';
+  });
+  renderAdmin();
+}
+
+async function deleteGlobalWorkout(id){
+  if(!confirm('এই global workout মুছে ফেলবেন?'))return;
+  await sb.from('global_workouts').delete().eq('id',id);
+  showToast('Global workout মুছে ফেলা হয়েছে');
+  renderAdmin();
+}
+
+async function loadGlobalFoods(){
+  const{data}=await sb.from('global_foods').select('*').order('name');
+  return(data||[]).map(r=>({
+    id:'gf_'+r.id,name:r.name,qty:r.quantity_label||'1 serving',
+    cal:r.calories,pro:r.protein,carb:r.carbs,fat:r.fat,
+    sec:r.category,junk:r.is_junk,isGlobal:true
+  }));
+}
+
+async function loadGlobalWorkouts(){
+  const{data}=await sb.from('global_workouts').select('*').order('name');
+  return(data||[]).map(r=>({
+    id:'gw_'+r.id,name:r.name,dur:r.duration_label||'—',
+    burn:r.calories_burned,steps:r.steps,sec:r.category,mins:30,isGlobal:true
+  }));
 }
 
 // ══════════════════════════════════════════// PROFILE
