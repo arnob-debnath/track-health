@@ -18,7 +18,30 @@
 
 <!-- LOADING -->
 <div class="loading" id="loadingScreen">
-  <div class="spinner"></div> লোড হচ্ছে...
+  <!-- Floating particles -->
+  <div class="loading-particle" style="width:6px;height:6px;background:rgba(74,222,128,.4);left:10%;animation-duration:4s;animation-delay:0s"></div>
+  <div class="loading-particle" style="width:4px;height:4px;background:rgba(96,165,250,.3);left:25%;animation-duration:5s;animation-delay:.5s"></div>
+  <div class="loading-particle" style="width:8px;height:8px;background:rgba(251,191,36,.2);left:60%;animation-duration:3.5s;animation-delay:1s"></div>
+  <div class="loading-particle" style="width:5px;height:5px;background:rgba(74,222,128,.3);left:80%;animation-duration:4.5s;animation-delay:.3s"></div>
+  <div class="loading-particle" style="width:4px;height:4px;background:rgba(248,113,113,.2);left:45%;animation-duration:6s;animation-delay:.8s"></div>
+
+  <!-- Health icons bouncing -->
+  <div class="loading-icons">
+    <span class="loading-icon">🏃</span>
+    <span class="loading-icon">💪</span>
+    <span class="loading-icon">🥗</span>
+    <span class="loading-icon">💧</span>
+    <span class="loading-icon">❤️</span>
+  </div>
+
+  <!-- Heartbeat SVG -->
+  <svg class="loading-heartbeat" viewBox="0 0 200 50" xmlns="http://www.w3.org/2000/svg">
+    <path class="heartbeat-path" d="M0,25 L30,25 L40,10 L50,40 L60,5 L70,45 L80,25 L110,25 L120,15 L130,35 L140,25 L200,25"/>
+  </svg>
+
+  <!-- App name -->
+  <div style="font-size:20px;font-weight:600;color:var(--green);letter-spacing:-0.5px;margin-bottom:6px">Health Tracker</div>
+  <div class="loading-text">লোড হচ্ছে...</div>
 </div>
 
 <!-- AUTH -->

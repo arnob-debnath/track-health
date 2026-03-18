@@ -216,7 +216,15 @@ function showScreen(s){
 // TOAST
 // ══════════════════════════════════════════
 let tt;
-function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('show'),2200);}
+function showToast(msg, type=''){
+  const t=document.getElementById('toast');
+  const icons={success:'✓ ',error:'✕ ',water:'💧 ',food:'🥗 ',workout:'💪 '};
+  t.textContent=(icons[type]||'')+msg;
+  t.style.borderColor=type==='error'?'rgba(248,113,113,.3)':type==='water'?'rgba(96,165,250,.3)':'var(--bd2)';
+  t.classList.add('show');
+  clearTimeout(tt);
+  tt=setTimeout(()=>t.classList.remove('show'),2400);
+}
 
 // ══════════════════════════════════════════
 // NAVIGATION
@@ -578,6 +586,18 @@ async function renderFood(){
   renderFoodList(data);
 }
 
+function countUp(el,target,suffix=''){
+  if(!el)return;
+  const start=parseInt(el.textContent)||0;
+  const diff=target-start;
+  if(Math.abs(diff)<2){el.textContent=target+suffix;return;}
+  const steps=16,dur=350,step=dur/steps;let i=0;
+  const timer=setInterval(()=>{
+    i++;el.textContent=Math.round(start+(diff*(i/steps)))+suffix;
+    if(i>=steps){el.textContent=target+suffix;clearInterval(timer);}
+  },step);
+}
+
 function updateMacros(data){
   const q=data.qty||{};
   let t={cal:0,pro:0,carb:0,fat:0};
@@ -587,11 +607,12 @@ function updateMacros(data){
     if(f){t.cal+=f.cal*qty;t.pro+=f.pro*qty;t.carb+=f.carb*qty;t.fat+=f.fat*qty;}
   });
   const p=(v,m)=>Math.min(100,Math.round(v/m*100));
-  document.getElementById('mCal').textContent=Math.round(t.cal);
-  document.getElementById('mPro').textContent=Math.round(t.pro)+'g';
-  document.getElementById('mCarb').textContent=Math.round(t.carb)+'g';
-  document.getElementById('mFat').textContent=Math.round(t.fat)+'g';
-  document.getElementById('mCal').className='mval'+(t.cal>T.cal?' over':'');
+  const calEl=document.getElementById('mCal');
+  countUp(calEl,Math.round(t.cal));
+  countUp(document.getElementById('mPro'),Math.round(t.pro),'g');
+  countUp(document.getElementById('mCarb'),Math.round(t.carb),'g');
+  countUp(document.getElementById('mFat'),Math.round(t.fat),'g');
+  if(calEl)calEl.className='mval'+(t.cal>T.cal?' over':'');
   document.getElementById('bCal').style.width=p(t.cal,T.cal)+'%';
   document.getElementById('bPro').style.width=p(t.pro,T.pro)+'%';
   document.getElementById('bCarb').style.width=p(t.carb,T.carb)+'%';
@@ -625,7 +646,7 @@ function renderWater(data){
       d.water.push(opt.ml);
       renderWater(d);
       await saveWater(d.water);
-      showToast('+'+opt.l+' পানি যোগ হয়েছে');
+      showToast(opt.l+' পানি যোগ','water');
     };
     btns.appendChild(b);
   });
