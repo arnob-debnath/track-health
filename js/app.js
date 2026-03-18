@@ -966,25 +966,55 @@ async function renderMessages(){
     c.textContent=t;c.onclick=()=>{msgType=t;renderMessages();};
     chips.appendChild(c);
   });
-  const{data}=await sb.from('messages').select('*').eq('user_id',curUser.id).order('created_at',{ascending:false});
+
+  // Load ALL messages — public board, everyone sees everything
+  const{data}=await sb.from('messages').select('*').order('created_at',{ascending:false});
   const list=document.getElementById('msgList');
   if(!data||!data.length){list.innerHTML='<div class="empty">এখনো কোনো message নেই</div>';return;}
-  list.innerHTML='<div class="msg-list">'+data.map(m=>`
-    <div class="msg-card">
+
+  list.innerHTML='<div class="msg-list">'+data.map(m=>{
+    // Parse replies — stored as JSON array string
+    let replies=[];
+    try{
+      if(m.admin_reply){
+        const parsed=JSON.parse(m.admin_reply);
+        replies=Array.isArray(parsed)?parsed:[{text:m.admin_reply,time:m.updated_at||m.created_at}];
+      }
+    }catch(e){
+      if(m.admin_reply)replies=[{text:m.admin_reply,time:m.created_at}];
+    }
+
+    const isOwn=m.user_id===curUser.id;
+    return `<div class="msg-card" style="${m.is_solved?'border-color:rgba(74,222,128,.2)':''}">
       <div class="msg-meta">
+        <span class="msg-user" style="font-weight:500">${m.user_name||'User'}</span>
         <span class="msg-type">${m.type}</span>
         <span class="msg-time">${new Date(m.created_at).toLocaleDateString('bn-BD')}</span>
-        ${m.is_solved?'<span class="solved-badge">✓ solved</span>':'<span style="margin-left:auto;font-size:10px;color:var(--t3)">pending</span>'}
+        ${m.is_solved?'<span class="solved-badge" style="margin-left:auto">✓ solved</span>':'<span style="margin-left:auto;font-size:10px;color:var(--amber)">pending</span>'}
       </div>
       <div class="msg-content">${m.content}</div>
-      ${m.admin_reply?`<div class="msg-reply"><div class="msg-reply-lbl">Admin reply</div>${m.admin_reply}</div>`:''}
-    </div>`).join('')+'</div>';
+      ${replies.length>0?`
+        <div style="margin-top:8px;display:flex;flex-direction:column;gap:6px">
+          ${replies.map(r=>`
+            <div class="msg-reply">
+              <div class="msg-reply-lbl">Admin reply — ${new Date(r.time).toLocaleDateString('bn-BD')}</div>
+              ${r.text}
+            </div>`).join('')}
+        </div>`:''}
+      ${isOwn&&!m.is_solved?`<div style="font-size:10px;color:var(--t3);margin-top:6px">তোমার message — pending</div>`:''}
+    </div>`;
+  }).join('')+'</div>';
 }
 
 async function sendMessage(){
   const content=document.getElementById('msgContent').value.trim();
   if(!content){showToast('Message লিখুন');return;}
-  const{error}=await sb.from('messages').insert({user_id:curUser.id,user_name:curUser.user_metadata?.name||curUser.email.split('@')[0],content,type:msgType});
+  const{error}=await sb.from('messages').insert({
+    user_id:curUser.id,
+    user_name:curUser.user_metadata?.name||curUser.email.split('@')[0],
+    content,
+    type:msgType
+  });
   if(error){showToast('Error: '+error.message);return;}
   document.getElementById('msgContent').value='';
   showToast('Message পাঠানো হয়েছে');
@@ -1159,8 +1189,35 @@ function switchAdminTab(t){
 async function sendAdminReply(msgId){
   const reply=document.getElementById('reply_'+msgId)?.value.trim();
   if(!reply){showToast('Reply লিখুন');return;}
-  await sb.from('messages').update({admin_reply:reply}).eq('id',msgId);
-  showToast('Reply পাঠানো হয়েছে');renderAdmin();
+
+  // Get current replies
+  const{data:msg}=await sb.from('messages').select('admin_reply').eq('id',msgId).single();
+  let replies=[];
+  try{
+    if(msg?.admin_reply){
+      const parsed=JSON.parse(msg.admin_reply);
+      replies=Array.isArray(parsed)?parsed:[{text:msg.admin_reply,time:new Date().toISOString()}];
+    }
+  }catch(e){
+    if(msg?.admin_reply)replies=[{text:msg.admin_reply,time:new Date().toISOString()}];
+  }
+
+  // Add new reply
+  replies.push({text:reply,time:new Date().toISOString()});
+
+  await sb.from('messages').update({
+    admin_reply:JSON.stringify(replies),
+    updated_at:new Date().toISOString()
+  }).eq('id',msgId);
+
+  // Clear textarea
+  const ta=document.getElementById('reply_'+msgId);
+  if(ta)ta.value='';
+
+  showToast('Reply পাঠানো হয়েছে');
+  renderAdmin();
+  // Also update messages view if open
+  if(document.getElementById('v-messages').classList.contains('on'))renderMessages();
 }
 
 async function markSolved(msgId){
