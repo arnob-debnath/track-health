@@ -289,34 +289,75 @@ select.finp{appearance:none;cursor:pointer;}
 
     <!-- LOGIN -->
     <div id="loginForm">
-      <div class="fg"><label class="flbl">Email</label><input class="finp" id="loginEmail" type="email" placeholder="তোমার email"></div>
-      <div class="fg"><label class="flbl">Password</label><input class="finp" id="loginPass" type="password" placeholder="password"></div>
+      <div class="fg"><label class="flbl">Email বা Phone</label><input class="finp" id="loginEmail" placeholder="email অথবা +8801XXXXXXXXX"></div>
+      <div class="fg"><label class="flbl">Password</label><input class="finp" id="loginPass" type="password" placeholder="password">
+        <div style="text-align:right;margin-top:5px"><button onclick="showAuthTab('forgot')" style="background:transparent;border:none;color:var(--blue);font-size:11px;cursor:pointer;font-family:inherit">Password ভুলে গেছো?</button></div>
+      </div>
       <button class="sbtn primary" onclick="doLogin()" id="loginBtn">Login করো</button>
       <div class="auth-err" id="loginErr"></div>
+      <div style="text-align:center;margin-top:12px;font-size:12px;color:var(--t3)">Account নেই? <button onclick="showAuthTab('signup')" style="background:transparent;border:none;color:var(--blue);font-size:12px;cursor:pointer;font-family:inherit">Sign Up করো</button></div>
     </div>
 
     <!-- SIGNUP -->
     <div id="signupForm" style="display:none">
-      <div class="fg"><label class="flbl">নাম</label><input class="finp" id="signupName" placeholder="তোমার নাম"></div>
-      <div class="fg"><label class="flbl">Email</label><input class="finp" id="signupEmail" type="email" placeholder="তোমার email"></div>
-      <div class="fg"><label class="flbl">Password (কমপক্ষে ৬ অক্ষর)</label><input class="finp" id="signupPass" type="password" placeholder="password"></div>
+      <div class="fg"><label class="flbl">নাম *</label><input class="finp" id="signupName" placeholder="তোমার নাম"></div>
+      <div class="trow">
+        <button class="tog on" id="togEmail" onclick="setSignupMethod('email')">Email দিয়ে</button>
+        <button class="tog" id="togPhone" onclick="setSignupMethod('phone')">Phone দিয়ে</button>
+      </div>
+      <div id="emailSignupFields">
+        <div class="fg"><label class="flbl">Email</label><input class="finp" id="signupEmail" type="email" placeholder="তোমার email"></div>
+        <div class="fg"><label class="flbl">Password (কমপক্ষে ৬ অক্ষর)</label><input class="finp" id="signupPass" type="password" placeholder="password"></div>
+      </div>
+      <div id="phoneSignupFields" style="display:none">
+        <div class="fg"><label class="flbl">Phone Number</label><input class="finp" id="signupPhone" placeholder="+8801XXXXXXXXX" type="tel"></div>
+        <div style="font-size:11px;color:var(--t3);margin-top:-6px;margin-bottom:8px">Country code সহ দাও। যেমন: +8801712345678</div>
+      </div>
       <button class="sbtn primary" onclick="doSignup()" id="signupBtn">Account বানাও</button>
       <div class="auth-err" id="signupErr"></div>
       <div class="auth-ok" id="signupOk"></div>
+      <div style="text-align:center;margin-top:12px;font-size:12px;color:var(--t3)">আগেই account আছে? <button onclick="showAuthTab('login')" style="background:transparent;border:none;color:var(--blue);font-size:12px;cursor:pointer;font-family:inherit">Login করো</button></div>
     </div>
 
-    <!-- OTP VERIFY -->
+    <!-- OTP VERIFY (Email / Phone) -->
     <div id="otpForm" style="display:none">
       <div style="text-align:center;margin-bottom:16px">
-        <div style="font-size:32px;margin-bottom:8px">📧</div>
-        <div style="font-size:13px;color:var(--t1);font-weight:500">Email verify করো</div>
+        <div style="font-size:32px;margin-bottom:8px" id="otpIcon">📧</div>
+        <div style="font-size:13px;color:var(--t1);font-weight:500" id="otpTitle">Email verify করো</div>
         <div style="font-size:12px;color:var(--t3);margin-top:4px" id="otpEmailShow"></div>
       </div>
-      <div class="fg"><label class="flbl">OTP Code (email-এ পাঠানো হয়েছে)</label><input class="finp" id="otpCode" type="text" placeholder="6-digit code" maxlength="6" style="text-align:center;letter-spacing:6px;font-size:18px;font-family:'DM Mono',monospace"></div>
+      <div class="fg"><label class="flbl">OTP Code</label><input class="finp" id="otpCode" type="text" placeholder="6-digit code" maxlength="6" style="text-align:center;letter-spacing:6px;font-size:18px;font-family:'DM Mono',monospace"></div>
       <button class="sbtn primary" onclick="doVerifyOTP()" id="otpBtn">Verify করো</button>
       <button class="sbtn ghost" style="margin-top:6px" onclick="resendOTP()">OTP আবার পাঠাও</button>
       <div class="auth-err" id="otpErr"></div>
       <div class="auth-ok" id="otpOk"></div>
+    </div>
+
+    <!-- FORGOT PASSWORD -->
+    <div id="forgotForm" style="display:none">
+      <div style="text-align:center;margin-bottom:16px">
+        <div style="font-size:32px;margin-bottom:8px">🔑</div>
+        <div style="font-size:13px;color:var(--t1);font-weight:500">Password Reset</div>
+        <div style="font-size:12px;color:var(--t3);margin-top:4px">তোমার email-এ reset link পাঠানো হবে</div>
+      </div>
+      <div class="fg"><label class="flbl">Email</label><input class="finp" id="forgotEmail" type="email" placeholder="তোমার email"></div>
+      <button class="sbtn primary" onclick="doForgotPassword()" id="forgotBtn">Reset Link পাঠাও</button>
+      <button class="sbtn ghost" style="margin-top:6px" onclick="showAuthTab('login')">← ফিরে যাও</button>
+      <div class="auth-err" id="forgotErr"></div>
+      <div class="auth-ok" id="forgotOk"></div>
+    </div>
+
+    <!-- NEW PASSWORD (after reset redirect) -->
+    <div id="newPassForm" style="display:none">
+      <div style="text-align:center;margin-bottom:16px">
+        <div style="font-size:32px;margin-bottom:8px">🔐</div>
+        <div style="font-size:13px;color:var(--t1);font-weight:500">নতুন Password দাও</div>
+      </div>
+      <div class="fg"><label class="flbl">নতুন Password</label><input class="finp" id="newPass" type="password" placeholder="নতুন password (কমপক্ষে ৬ অক্ষর)"></div>
+      <div class="fg"><label class="flbl">আবার দাও</label><input class="finp" id="newPass2" type="password" placeholder="password আবার লিখুন"></div>
+      <button class="sbtn primary" onclick="doUpdatePassword()" id="newPassBtn">Password Update করো</button>
+      <div class="auth-err" id="newPassErr"></div>
+      <div class="auth-ok" id="newPassOk"></div>
     </div>
   </div>
 </div>
@@ -626,6 +667,21 @@ async function init(){
   const params=new URLSearchParams(window.location.search);
   const tokenHash=params.get('token_hash');
   const type=params.get('type');
+  if(tokenHash&&type==='recovery'){
+    // Password reset redirect
+    showScreen('auth');
+    document.getElementById('loadingScreen').style.display='none';
+    document.getElementById('authScreen').style.display='flex';
+    const{error}=await sb.auth.verifyOtp({token_hash:tokenHash,type:'recovery'});
+    if(!error){
+      document.getElementById('newPassForm').style.display='block';
+      document.querySelectorAll('.auth-tab').forEach(b=>b.classList.remove('on'));
+    } else {
+      showAuthTab('login');
+      showAuthMsg('loginErr','Reset link মেয়াদ শেষ — আবার চেষ্টা করুন');
+    }
+    return;
+  }
   if(tokenHash&&type){
     const{data,error}=await sb.auth.verifyOtp({token_hash:tokenHash,type});
     window.history.replaceState({},'',window.location.pathname);
@@ -671,40 +727,113 @@ function showScreen(s){
 // ══════════════════════════════════════════
 // AUTH
 // ══════════════════════════════════════════
+let signupMethod='email', signupPhone='';
+
 function showAuthTab(t){
   document.querySelectorAll('.auth-tab').forEach((b,i)=>b.classList.toggle('on',(t==='login'&&i===0)||(t==='signup'&&i===1)));
-  document.getElementById('loginForm').style.display=t==='login'?'block':'none';
-  document.getElementById('signupForm').style.display=t==='signup'?'block':'none';
-  document.getElementById('otpForm').style.display='none';
+  const forms=['loginForm','signupForm','otpForm','forgotForm','newPassForm'];
+  forms.forEach(f=>{const el=document.getElementById(f);if(el)el.style.display='none';});
+  const map={login:'loginForm',signup:'signupForm',otp:'otpForm',forgot:'forgotForm',newpass:'newPassForm'};
+  if(map[t])document.getElementById(map[t]).style.display='block';
+}
+
+function setSignupMethod(m){
+  signupMethod=m;
+  document.getElementById('togEmail').classList.toggle('on',m==='email');
+  document.getElementById('togPhone').classList.toggle('on',m==='phone');
+  document.getElementById('emailSignupFields').style.display=m==='email'?'block':'none';
+  document.getElementById('phoneSignupFields').style.display=m==='phone'?'block':'none';
 }
 
 async function doLogin(){
-  const email=document.getElementById('loginEmail').value.trim();
+  const val=document.getElementById('loginEmail').value.trim();
   const pass=document.getElementById('loginPass').value;
-  if(!email||!pass){showAuthMsg('loginErr','Email ও password দিন');return;}
+  if(!val){showAuthMsg('loginErr','Email বা phone number দিন');return;}
   const btn=document.getElementById('loginBtn');
   btn.disabled=true;btn.textContent='লগিন হচ্ছে...';
-  const{error}=await sb.auth.signInWithPassword({email,password:pass});
+  let error;
+  if(val.startsWith('+')){
+    // Phone OTP login
+    const{error:e}=await sb.auth.signInWithOtp({phone:val});
+    error=e;
+    if(!e){
+      signupPhone=val;signupMethod='phone';
+      btn.disabled=false;btn.textContent='Login করো';
+      document.getElementById('loginForm').style.display='none';
+      document.getElementById('otpForm').style.display='block';
+      document.getElementById('otpIcon').textContent='📱';
+      document.getElementById('otpTitle').textContent='Phone verify করো';
+      document.getElementById('otpEmailShow').textContent=val+'-এ OTP SMS পাঠানো হয়েছে';
+      showAuthMsg('otpOk','SMS চেক করো — OTP পাঠানো হয়েছে');
+      return;
+    }
+  } else {
+    if(!pass){showAuthMsg('loginErr','Password দিন');btn.disabled=false;btn.textContent='Login করো';return;}
+    const{error:e}=await sb.auth.signInWithPassword({email:val,password:pass});
+    error=e;
+  }
   btn.disabled=false;btn.textContent='Login করো';
-  if(error)showAuthMsg('loginErr',error.message==='Invalid login credentials'?'Email বা password ভুল':error.message);
+  if(error){
+    const m=error.message;
+    if(m==='Invalid login credentials'||m.includes('invalid_credentials'))
+      showAuthMsg('loginErr','Email বা password ভুল — আবার চেষ্টা করো');
+    else if(m.includes('Email not confirmed'))
+      showAuthMsg('loginErr','Email verify করা হয়নি — inbox চেক করো');
+    else if(m.includes('Too many'))
+      showAuthMsg('loginErr','অনেকবার চেষ্টা করা হয়েছে — কিছুক্ষণ পরে আবার চেষ্টা করো');
+    else showAuthMsg('loginErr',m);
+  }
 }
 
 async function doSignup(){
   const name=document.getElementById('signupName').value.trim();
-  const email=document.getElementById('signupEmail').value.trim();
-  const pass=document.getElementById('signupPass').value;
-  if(!name||!email||!pass){showAuthMsg('signupErr','সব field পূরণ করুন');return;}
-  if(pass.length<6){showAuthMsg('signupErr','Password কমপক্ষে ৬ অক্ষর হতে হবে');return;}
+  if(!name){showAuthMsg('signupErr','নাম দিন');return;}
   const btn=document.getElementById('signupBtn');
   btn.disabled=true;btn.textContent='Account বানানো হচ্ছে...';
-  const{error}=await sb.auth.signUp({email,password:pass,options:{data:{name},emailRedirectTo:'https://arnob-debnath.github.io/track-health'}});
-  btn.disabled=false;btn.textContent='Account বানাও';
-  if(error){showAuthMsg('signupErr',error.message);return;}
-  signupEmail=email;
-  document.getElementById('signupForm').style.display='none';
-  document.getElementById('otpForm').style.display='block';
-  document.getElementById('otpEmailShow').textContent=email+'-এ OTP পাঠানো হয়েছে';
-  showAuthMsg('otpOk','Email চেক করো — OTP পাঠানো হয়েছে');
+  if(signupMethod==='phone'){
+    const phone=document.getElementById('signupPhone').value.trim();
+    if(!phone||!phone.startsWith('+')){showAuthMsg('signupErr','Phone number দিন (+880...)');btn.disabled=false;btn.textContent='Account বানাও';return;}
+    const{error}=await sb.auth.signInWithOtp({phone,options:{data:{name}}});
+    btn.disabled=false;btn.textContent='Account বানাও';
+    if(error){showAuthMsg('signupErr',error.message);return;}
+    signupPhone=phone;signupEmail='';
+    document.getElementById('signupForm').style.display='none';
+    document.getElementById('otpForm').style.display='block';
+    document.getElementById('otpIcon').textContent='📱';
+    document.getElementById('otpTitle').textContent='Phone verify করো';
+    document.getElementById('otpEmailShow').textContent=phone+'-এ OTP SMS পাঠানো হয়েছে';
+    showAuthMsg('otpOk','SMS চেক করো — OTP পাঠানো হয়েছে');
+  } else {
+    const email=document.getElementById('signupEmail').value.trim();
+    const pass=document.getElementById('signupPass').value;
+    if(!email||!pass){showAuthMsg('signupErr','Email ও password দিন');btn.disabled=false;btn.textContent='Account বানাও';return;}
+    if(pass.length<6){showAuthMsg('signupErr','Password কমপক্ষে ৬ অক্ষর');btn.disabled=false;btn.textContent='Account বানাও';return;}
+    const{data:sd,error}=await sb.auth.signUp({email,password:pass,options:{data:{name},emailRedirectTo:'https://arnob-debnath.github.io/track-health'}});
+    btn.disabled=false;btn.textContent='Account বানাও';
+    if(error){
+      const msg=error.message;
+      if(msg.includes('already registered')||msg.includes('already exists')||msg.includes('User already'))
+        showAuthMsg('signupErr','এই email দিয়ে আগেই account আছে — Login করো অথবা অন্য email ব্যবহার করো');
+      else if(msg.includes('invalid')||msg.includes('Invalid'))
+        showAuthMsg('signupErr','সঠিক email দিন');
+      else if(msg.includes('Password'))
+        showAuthMsg('signupErr','Password কমপক্ষে ৬ অক্ষর হতে হবে');
+      else showAuthMsg('signupErr',msg);
+      return;
+    }
+    // Supabase sometimes returns user with identities=[] for existing email (no error thrown)
+    if(sd?.user&&sd.user.identities&&sd.user.identities.length===0){
+      showAuthMsg('signupErr','এই email দিয়ে আগেই account আছে — Login করো অথবা অন্য email ব্যবহার করো');
+      return;
+    }
+    signupEmail=email;
+    document.getElementById('signupForm').style.display='none';
+    document.getElementById('otpForm').style.display='block';
+    document.getElementById('otpIcon').textContent='📧';
+    document.getElementById('otpTitle').textContent='Email verify করো';
+    document.getElementById('otpEmailShow').textContent=email+'-এ OTP পাঠানো হয়েছে';
+    showAuthMsg('otpOk','Email চেক করো — OTP পাঠানো হয়েছে');
+  }
 }
 
 async function doVerifyOTP(){
@@ -712,20 +841,60 @@ async function doVerifyOTP(){
   if(!code||code.length<6){showAuthMsg('otpErr','OTP code দিন');return;}
   const btn=document.getElementById('otpBtn');
   btn.disabled=true;btn.textContent='Verify হচ্ছে...';
-  const{error}=await sb.auth.verifyOtp({email:signupEmail,token:code,type:'email'});
+  let error;
+  if(signupMethod==='phone'){
+    const{error:e}=await sb.auth.verifyOtp({phone:signupPhone,token:code,type:'sms'});
+    error=e;
+  } else {
+    const{error:e}=await sb.auth.verifyOtp({email:signupEmail,token:code,type:'email'});
+    error=e;
+  }
   btn.disabled=false;btn.textContent='Verify করো';
   if(error){showAuthMsg('otpErr','OTP ভুল বা মেয়াদ শেষ');return;}
-  showAuthMsg('otpOk','Email verify হয়েছে! Login হচ্ছে...');
+  showAuthMsg('otpOk','Verify হয়েছে! Login হচ্ছে...');
 }
 
 async function resendOTP(){
-  const{error}=await sb.auth.resend({type:'signup',email:signupEmail});
+  let error;
+  if(signupMethod==='phone'){
+    const{error:e}=await sb.auth.signInWithOtp({phone:signupPhone});
+    error=e;
+  } else {
+    const{error:e}=await sb.auth.resend({type:'signup',email:signupEmail});
+    error=e;
+  }
   if(error)showAuthMsg('otpErr',error.message);
   else showAuthMsg('otpOk','নতুন OTP পাঠানো হয়েছে');
 }
 
+async function doForgotPassword(){
+  const email=document.getElementById('forgotEmail').value.trim();
+  if(!email){showAuthMsg('forgotErr','Email দিন');return;}
+  const btn=document.getElementById('forgotBtn');
+  btn.disabled=true;btn.textContent='পাঠানো হচ্ছে...';
+  const{error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:'https://arnob-debnath.github.io/track-health?type=recovery'});
+  btn.disabled=false;btn.textContent='Reset Link পাঠাও';
+  if(error){showAuthMsg('forgotErr',error.message);return;}
+  showAuthMsg('forgotOk','Email চেক করো — Reset link পাঠানো হয়েছে');
+}
+
+async function doUpdatePassword(){
+  const p1=document.getElementById('newPass').value;
+  const p2=document.getElementById('newPass2').value;
+  if(!p1||p1.length<6){showAuthMsg('newPassErr','Password কমপক্ষে ৬ অক্ষর');return;}
+  if(p1!==p2){showAuthMsg('newPassErr','Password দুটো মিলছে না');return;}
+  const btn=document.getElementById('newPassBtn');
+  btn.disabled=true;btn.textContent='Update হচ্ছে...';
+  const{error}=await sb.auth.updateUser({password:p1});
+  btn.disabled=false;btn.textContent='Password Update করো';
+  if(error){showAuthMsg('newPassErr',error.message);return;}
+  showAuthMsg('newPassOk','Password update হয়েছে! Login হচ্ছে...');
+  setTimeout(()=>location.reload(),2000);
+}
+
 function showAuthMsg(id,msg){
   const el=document.getElementById(id);
+  if(!el)return;
   el.textContent=msg;el.style.display='block';
   setTimeout(()=>el.style.display='none',5000);
 }
