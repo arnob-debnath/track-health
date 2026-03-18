@@ -289,8 +289,8 @@ select.finp{appearance:none;cursor:pointer;}
 
     <!-- LOGIN -->
     <div id="loginForm">
-      <div class="fg"><label class="flbl">Email বা Phone</label><input class="finp" id="loginEmail" placeholder="email অথবা +8801XXXXXXXXX"></div>
-      <div class="fg"><label class="flbl">Password</label><input class="finp" id="loginPass" type="password" placeholder="password">
+      <div class="fg"><label class="flbl">Email বা Phone</label><input class="finp" id="loginEmail" placeholder="email অথবা +8801XXXXXXXXX" oninput="toggleLoginPass()"></div>
+      <div class="fg" id="loginPassField"><label class="flbl">Password</label><input class="finp" id="loginPass" type="password" placeholder="password">
         <div style="text-align:right;margin-top:5px"><button onclick="showAuthTab('forgot')" style="background:transparent;border:none;color:var(--blue);font-size:11px;cursor:pointer;font-family:inherit">Password ভুলে গেছো?</button></div>
       </div>
       <button class="sbtn primary" onclick="doLogin()" id="loginBtn">Login করো</button>
@@ -312,6 +312,7 @@ select.finp{appearance:none;cursor:pointer;}
       <div id="phoneSignupFields" style="display:none">
         <div class="fg"><label class="flbl">Phone Number</label><input class="finp" id="signupPhone" placeholder="+8801XXXXXXXXX" type="tel"></div>
         <div style="font-size:11px;color:var(--t3);margin-top:-6px;margin-bottom:8px">Country code সহ দাও। যেমন: +8801712345678</div>
+        <div class="fg"><label class="flbl">Password (কমপক্ষে ৬ অক্ষর)</label><input class="finp" id="signupPhonePass" type="password" placeholder="password দাও"></div>
       </div>
       <button class="sbtn primary" onclick="doSignup()" id="signupBtn">Account বানাও</button>
       <div class="auth-err" id="signupErr"></div>
@@ -661,6 +662,12 @@ let syncTimer=null, signupEmail='';
 function todayStr(){return new Date().toISOString().slice(0,10);}
 
 // ══════════════════════════════════════════
+function toggleLoginPass(){
+  const val=document.getElementById('loginEmail').value.trim();
+  // Phone login still needs password
+  document.getElementById('loginPassField').style.display='block';
+}
+
 // INIT
 // ══════════════════════════════════════════
 async function init(){
@@ -754,6 +761,9 @@ async function doLogin(){
   let error;
   if(val.startsWith('+')){
     // Phone OTP login via TextBee Edge Function
+    const phoneLoginPass = document.getElementById('loginPass').value;
+    if(!phoneLoginPass){showAuthMsg('loginErr','Password দিন');btn.disabled=false;btn.textContent='Login করো';return;}
+    localStorage.setItem('pendingPhonePass', phoneLoginPass);
     const _r2=await fetch('https://health-tracker-otp.arnobdebnath216.workers.dev',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone:val,action:'send'})});
     const _d2=await _r2.json();
     btn.disabled=false;btn.textContent='Login করো';
@@ -792,8 +802,10 @@ async function doSignup(){
   if(signupMethod==='phone'){
     const phone=document.getElementById('signupPhone').value.trim();
     if(!phone||!phone.startsWith('+')){showAuthMsg('signupErr','Phone number দিন (+880...)');btn.disabled=false;btn.textContent='Account বানাও';return;}
-    // Save name for after OTP verify
+    const phonePass2 = document.getElementById('signupPhonePass').value;
+    if(!phonePass2||phonePass2.length<6){showAuthMsg('signupErr','Password কমপক্ষে ৬ অক্ষর দিন');btn.disabled=false;btn.textContent='Account বানাও';return;}
     localStorage.setItem('pendingPhoneName', name);
+    localStorage.setItem('pendingPhonePass', phonePass2);
     const _r1=await fetch('https://health-tracker-otp.arnobdebnath216.workers.dev',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone,action:'send'})});
     const _d1=await _r1.json();
     btn.disabled=false;btn.textContent='Account বানাও';
@@ -853,29 +865,40 @@ async function doVerifyOTP(){
       showAuthMsg('otpErr',_d3.error||'OTP ভুল বা মেয়াদ শেষ');
       return;
     }
-    // OTP verified — create anonymous Supabase session for phone user
+    // OTP verified — create/login Supabase account using phone + password
     const name = localStorage.getItem('pendingPhoneName') || signupPhone;
+    const savedPass = localStorage.getItem('pendingPhonePass') || '';
+    const phoneEmail = signupPhone.replace('+','') + '@ht.phone';
 
-    // Sign in anonymously — then save phone in profile
-    const{data:anonData, error:anonErr}=await sb.auth.signInAnonymously();
-    btn.disabled=false;btn.textContent='Verify করো';
-
-    if(anonErr){
-      showAuthMsg('otpErr','Login হয়নি: ' + anonErr.message);
+    // Try login first (returning user)
+    const{data:ld, error:le}=await sb.auth.signInWithPassword({email:phoneEmail, password:savedPass});
+    if(!le && ld?.session){
+      btn.disabled=false;btn.textContent='Verify করো';
+      localStorage.removeItem('pendingPhoneName');
+      localStorage.removeItem('pendingPhonePass');
+      showAuthMsg('otpOk','Login হয়েছে!');
       return;
     }
 
-    // Save phone + name in profile
-    const uid = anonData.user.id;
-    await sb.from('profiles').upsert({
-      id: uid,
-      name: name,
-      phone: signupPhone,
-      is_admin: false
-    }, {onConflict: 'id'});
-
+    // New user — signup
+    const{data:sd, error:se}=await sb.auth.signUp({
+      email: phoneEmail,
+      password: savedPass,
+      options:{data:{name, phone: signupPhone}}
+    });
+    btn.disabled=false;btn.textContent='Verify করো';
+    if(se && !se.message.includes('already') && !se.message.includes('registered')){
+      showAuthMsg('otpErr','Account তৈরি হয়নি: '+se.message);return;
+    }
+    // Login after signup
+    const{error:le2}=await sb.auth.signInWithPassword({email:phoneEmail, password:savedPass});
+    if(le2){showAuthMsg('otpErr','Login হয়নি — আবার চেষ্টা করো');return;}
+    // Save phone in profile
+    const uid=(await sb.auth.getUser()).data.user?.id;
+    if(uid) await sb.from('profiles').upsert({id:uid,name,phone:signupPhone,is_admin:false},{onConflict:'id'});
     localStorage.removeItem('pendingPhoneName');
-    showAuthMsg('otpOk','Login হয়েছে!');
+    localStorage.removeItem('pendingPhonePass');
+    showAuthMsg('otpOk','Account তৈরি হয়েছে! Login হচ্ছে...');
   } else {
     const{error}=await sb.auth.verifyOtp({email:signupEmail,token:code,type:'email'});
     btn.disabled=false;btn.textContent='Verify করো';
