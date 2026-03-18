@@ -853,29 +853,51 @@ async function doVerifyOTP(){
       showAuthMsg('otpErr',_d3.error||'OTP ভুল বা মেয়াদ শেষ');
       return;
     }
-    // OTP verified — now create/login Supabase user with magic link workaround
-    // Use a deterministic password based on phone for phone users
-    const phonePass = signupPhone.replace(/[^0-9]/g,'') + '_ht_phone_2024';
+    // OTP verified via Worker — now handle Supabase session
     const name = localStorage.getItem('pendingPhoneName') || signupPhone;
-    // Try signup first (new user), if exists then login
-    const{data:sd,error:se}=await sb.auth.signUp({
-      email: signupPhone.replace('+','') + '@phone.healthtracker.app',
-      password: phonePass,
-      options:{data:{name, phone: signupPhone}}
-    });
-    if(se && !se.message.includes('already registered') && !se.message.includes('already exists')){
-      btn.disabled=false;btn.textContent='Verify করো';
-      showAuthMsg('otpErr',se.message);return;
-    }
-    // If already exists, login
-    const{error:le}=await sb.auth.signInWithPassword({
-      email: signupPhone.replace('+','') + '@phone.healthtracker.app',
+    const phoneEmail = signupPhone.replace('+','').replace(/[^0-9]/g,'') + '@phone.healthtracker.app';
+    const phonePass = 'ht_' + signupPhone.replace(/[^0-9]/g,'') + '_2024_secure';
+
+    // First try to sign in (returning user)
+    const{data:loginData, error:loginErr}=await sb.auth.signInWithPassword({
+      email: phoneEmail,
       password: phonePass
     });
+
+    if(!loginErr && loginData?.session){
+      // Existing user logged in
+      btn.disabled=false;btn.textContent='Verify করো';
+      localStorage.removeItem('pendingPhoneName');
+      showAuthMsg('otpOk','Login হয়েছে!');
+      return;
+    }
+
+    // New user — create account
+    const{data:signupData, error:signupErr}=await sb.auth.signUp({
+      email: phoneEmail,
+      password: phonePass,
+      options:{
+        data:{name, phone: signupPhone},
+        emailRedirectTo: 'https://arnob-debnath.github.io/track-health'
+      }
+    });
+
     btn.disabled=false;btn.textContent='Verify করো';
-    if(le){showAuthMsg('otpErr','Login হয়নি — আবার চেষ্টা করো');return;}
+
+    if(signupErr){
+      showAuthMsg('otpErr','Account তৈরি হয়নি: ' + signupErr.message);
+      return;
+    }
+
+    // Auto confirm phone users (no email verification needed)
+    if(signupData?.user && !signupData.session){
+      // Need to sign in after signup
+      const{error:li2}=await sb.auth.signInWithPassword({email:phoneEmail, password:phonePass});
+      if(li2){showAuthMsg('otpErr','Login হয়নি — আবার চেষ্টা করো');return;}
+    }
+
     localStorage.removeItem('pendingPhoneName');
-    showAuthMsg('otpOk','Verify হয়েছে! Login হচ্ছে...');
+    showAuthMsg('otpOk','Account তৈরি হয়েছে! Login হচ্ছে...');
   } else {
     const{error}=await sb.auth.verifyOtp({email:signupEmail,token:code,type:'email'});
     btn.disabled=false;btn.textContent='Verify করো';
