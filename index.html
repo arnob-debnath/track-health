@@ -754,14 +754,9 @@ async function doLogin(){
   let error;
   if(val.startsWith('+')){
     // Phone OTP login via TextBee Edge Function
-    const res=await fetch('https://mxflswnydksexbcitfnn.supabase.co/functions/v1/send-otp',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer sb_publishable_z_EGcA7YG6cplcyNvUQemQ_-fZHn6Fn'},
-      body:JSON.stringify({phone:val,action:'send'})
-    });
-    const data=await res.json();
+    const {data,error:fnErr}=await sb.functions.invoke('send-otp',{body:{phone:val,action:'send'}});
     btn.disabled=false;btn.textContent='Login করো';
-    if(!res.ok||data.error){showAuthMsg('loginErr',data.error||'SMS পাঠানো যায়নি');return;}
+    if(fnErr||data?.error){showAuthMsg('loginErr',data?.error||fnErr?.message||'SMS পাঠানো যায়নি');return;}
     signupPhone=val;signupMethod='phone';
     document.getElementById('loginForm').style.display='none';
     document.getElementById('otpForm').style.display='block';
@@ -798,14 +793,9 @@ async function doSignup(){
     if(!phone||!phone.startsWith('+')){showAuthMsg('signupErr','Phone number দিন (+880...)');btn.disabled=false;btn.textContent='Account বানাও';return;}
     // Save name for after OTP verify
     localStorage.setItem('pendingPhoneName', name);
-    const res=await fetch('https://mxflswnydksexbcitfnn.supabase.co/functions/v1/send-otp',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer sb_publishable_z_EGcA7YG6cplcyNvUQemQ_-fZHn6Fn'},
-      body:JSON.stringify({phone,action:'send'})
-    });
-    const data=await res.json();
+    const {data,error:fnErr}=await sb.functions.invoke('send-otp',{body:{phone,action:'send'}});
     btn.disabled=false;btn.textContent='Account বানাও';
-    if(!res.ok||data.error){showAuthMsg('signupErr',data.error||'SMS পাঠানো যায়নি');return;}
+    if(fnErr||data?.error){showAuthMsg('signupErr',data?.error||fnErr?.message||'SMS পাঠানো যায়নি');return;}
     signupPhone=phone;signupEmail='';
     document.getElementById('signupForm').style.display='none';
     document.getElementById('otpForm').style.display='block';
@@ -854,15 +844,10 @@ async function doVerifyOTP(){
 
   if(signupMethod==='phone'){
     // Verify via Edge Function
-    const res=await fetch('https://mxflswnydksexbcitfnn.supabase.co/functions/v1/send-otp',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer sb_publishable_z_EGcA7YG6cplcyNvUQemQ_-fZHn6Fn'},
-      body:JSON.stringify({phone:signupPhone,otp:code,action:'verify'})
-    });
-    const data=await res.json();
-    if(!res.ok||data.error){
+    const {data,error:fnErr}=await sb.functions.invoke('send-otp',{body:{phone:signupPhone,otp:code,action:'verify'}});
+    if(fnErr||data?.error){
       btn.disabled=false;btn.textContent='Verify করো';
-      showAuthMsg('otpErr',data.error||'OTP ভুল বা মেয়াদ শেষ');
+      showAuthMsg('otpErr',data?.error||fnErr?.message||'OTP ভুল বা মেয়াদ শেষ');
       return;
     }
     // OTP verified — now create/login Supabase user with magic link workaround
@@ -898,13 +883,8 @@ async function doVerifyOTP(){
 
 async function resendOTP(){
   if(signupMethod==='phone'){
-    const res=await fetch('https://mxflswnydksexbcitfnn.supabase.co/functions/v1/send-otp',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer sb_publishable_z_EGcA7YG6cplcyNvUQemQ_-fZHn6Fn'},
-      body:JSON.stringify({phone:signupPhone,action:'send'})
-    });
-    const data=await res.json();
-    if(!res.ok||data.error)showAuthMsg('otpErr',data.error||'SMS পাঠানো যায়নি');
+    const {data,error:fnErr}=await sb.functions.invoke('send-otp',{body:{phone:signupPhone,action:'send'}});
+    if(fnErr||data?.error)showAuthMsg('otpErr',data?.error||fnErr?.message||'SMS পাঠানো যায়নি');
     else showAuthMsg('otpOk','নতুন OTP পাঠানো হয়েছে');
   } else {
     const{error}=await sb.auth.resend({type:'signup',email:signupEmail});
