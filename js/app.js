@@ -506,7 +506,7 @@ async function loadDayData(date){
   const[{data:fl},{data:wl},{data:wtr}]=await Promise.all([
     sb.from('food_logs').select('*').eq('user_id',curUser.id).eq('date',date),
     sb.from('workout_logs').select('*').eq('user_id',curUser.id).eq('date',date),
-    sb.from('water_logs').select('*').eq('user_id',curUser.id).eq('date',date).single(),
+    sb.from('water_logs').select('*').eq('user_id',curUser.id).eq('date',date).maybeSingle(),
   ]);
   const qty={}, wqty={};
   (fl||[]).forEach(r=>qty[r.food_id]=r.quantity);
