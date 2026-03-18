@@ -995,7 +995,6 @@ async function sendMessage(){
 // ADMIN PANEL
 // ══════════════════════════════════════════
 let adminTab='messages';
-let globalFoodsCache=[], globalWorkoutsCache=[];
 
 async function renderAdmin(){
   if(!isAdmin){showToast('Access denied');return;}
