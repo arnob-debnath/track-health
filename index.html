@@ -754,9 +754,10 @@ async function doLogin(){
   let error;
   if(val.startsWith('+')){
     // Phone OTP login via TextBee Edge Function
-    const {data,error:fnErr}=await sb.functions.invoke('send-otp',{body:{phone:val,action:'send'}});
+    const _r2=await fetch('https://health-tracker-otp.arnobdebnath216.workers.dev',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone:val,action:'send'})});
+    const _d2=await _r2.json();
     btn.disabled=false;btn.textContent='Login করো';
-    if(fnErr||data?.error){showAuthMsg('loginErr',data?.error||fnErr?.message||'SMS পাঠানো যায়নি');return;}
+    if(!_r2.ok||_d2.error){showAuthMsg('loginErr',_d2.error||'SMS পাঠানো যায়নি');return;}
     signupPhone=val;signupMethod='phone';
     document.getElementById('loginForm').style.display='none';
     document.getElementById('otpForm').style.display='block';
@@ -793,9 +794,10 @@ async function doSignup(){
     if(!phone||!phone.startsWith('+')){showAuthMsg('signupErr','Phone number দিন (+880...)');btn.disabled=false;btn.textContent='Account বানাও';return;}
     // Save name for after OTP verify
     localStorage.setItem('pendingPhoneName', name);
-    const {data,error:fnErr}=await sb.functions.invoke('send-otp',{body:{phone,action:'send'}});
+    const _r1=await fetch('https://health-tracker-otp.arnobdebnath216.workers.dev',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone,action:'send'})});
+    const _d1=await _r1.json();
     btn.disabled=false;btn.textContent='Account বানাও';
-    if(fnErr||data?.error){showAuthMsg('signupErr',data?.error||fnErr?.message||'SMS পাঠানো যায়নি');return;}
+    if(!_r1.ok||_d1.error){showAuthMsg('signupErr',_d1.error||'SMS পাঠানো যায়নি');return;}
     signupPhone=phone;signupEmail='';
     document.getElementById('signupForm').style.display='none';
     document.getElementById('otpForm').style.display='block';
@@ -844,10 +846,11 @@ async function doVerifyOTP(){
 
   if(signupMethod==='phone'){
     // Verify via Edge Function
-    const {data,error:fnErr}=await sb.functions.invoke('send-otp',{body:{phone:signupPhone,otp:code,action:'verify'}});
-    if(fnErr||data?.error){
+    const _r3=await fetch('https://health-tracker-otp.arnobdebnath216.workers.dev',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone:signupPhone,otp:code,action:'verify'})});
+    const _d3=await _r3.json();
+    if(!_r3.ok||_d3.error){
       btn.disabled=false;btn.textContent='Verify করো';
-      showAuthMsg('otpErr',data?.error||fnErr?.message||'OTP ভুল বা মেয়াদ শেষ');
+      showAuthMsg('otpErr',_d3.error||'OTP ভুল বা মেয়াদ শেষ');
       return;
     }
     // OTP verified — now create/login Supabase user with magic link workaround
@@ -883,8 +886,9 @@ async function doVerifyOTP(){
 
 async function resendOTP(){
   if(signupMethod==='phone'){
-    const {data,error:fnErr}=await sb.functions.invoke('send-otp',{body:{phone:signupPhone,action:'send'}});
-    if(fnErr||data?.error)showAuthMsg('otpErr',data?.error||fnErr?.message||'SMS পাঠানো যায়নি');
+    const _r4=await fetch('https://health-tracker-otp.arnobdebnath216.workers.dev',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone:signupPhone,action:'send'})});
+    const _d4=await _r4.json();
+    if(!_r4.ok||_d4.error)showAuthMsg('otpErr',_d4.error||'SMS পাঠানো যায়নি');
     else showAuthMsg('otpOk','নতুন OTP পাঠানো হয়েছে');
   } else {
     const{error}=await sb.auth.resend({type:'signup',email:signupEmail});
