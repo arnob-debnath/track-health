@@ -853,51 +853,29 @@ async function doVerifyOTP(){
       showAuthMsg('otpErr',_d3.error||'OTP ভুল বা মেয়াদ শেষ');
       return;
     }
-    // OTP verified via Worker — now handle Supabase session
+    // OTP verified — create anonymous Supabase session for phone user
     const name = localStorage.getItem('pendingPhoneName') || signupPhone;
-    const phoneEmail = signupPhone.replace('+','').replace(/[^0-9]/g,'') + '@phone.healthtracker.app';
-    const phonePass = 'ht_' + signupPhone.replace(/[^0-9]/g,'') + '_2024_secure';
 
-    // First try to sign in (returning user)
-    const{data:loginData, error:loginErr}=await sb.auth.signInWithPassword({
-      email: phoneEmail,
-      password: phonePass
-    });
-
-    if(!loginErr && loginData?.session){
-      // Existing user logged in
-      btn.disabled=false;btn.textContent='Verify করো';
-      localStorage.removeItem('pendingPhoneName');
-      showAuthMsg('otpOk','Login হয়েছে!');
-      return;
-    }
-
-    // New user — create account
-    const{data:signupData, error:signupErr}=await sb.auth.signUp({
-      email: phoneEmail,
-      password: phonePass,
-      options:{
-        data:{name, phone: signupPhone},
-        emailRedirectTo: 'https://arnob-debnath.github.io/track-health'
-      }
-    });
-
+    // Sign in anonymously — then save phone in profile
+    const{data:anonData, error:anonErr}=await sb.auth.signInAnonymously();
     btn.disabled=false;btn.textContent='Verify করো';
 
-    if(signupErr){
-      showAuthMsg('otpErr','Account তৈরি হয়নি: ' + signupErr.message);
+    if(anonErr){
+      showAuthMsg('otpErr','Login হয়নি: ' + anonErr.message);
       return;
     }
 
-    // Auto confirm phone users (no email verification needed)
-    if(signupData?.user && !signupData.session){
-      // Need to sign in after signup
-      const{error:li2}=await sb.auth.signInWithPassword({email:phoneEmail, password:phonePass});
-      if(li2){showAuthMsg('otpErr','Login হয়নি — আবার চেষ্টা করো');return;}
-    }
+    // Save phone + name in profile
+    const uid = anonData.user.id;
+    await sb.from('profiles').upsert({
+      id: uid,
+      name: name,
+      phone: signupPhone,
+      is_admin: false
+    }, {onConflict: 'id'});
 
     localStorage.removeItem('pendingPhoneName');
-    showAuthMsg('otpOk','Account তৈরি হয়েছে! Login হচ্ছে...');
+    showAuthMsg('otpOk','Login হয়েছে!');
   } else {
     const{error}=await sb.auth.verifyOtp({email:signupEmail,token:code,type:'email'});
     btn.disabled=false;btn.textContent='Verify করো';
