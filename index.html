@@ -753,20 +753,23 @@ async function doLogin(){
   btn.disabled=true;btn.textContent='লগিন হচ্ছে...';
   let error;
   if(val.startsWith('+')){
-    // Phone OTP login
-    const{error:e}=await sb.auth.signInWithOtp({phone:val});
-    error=e;
-    if(!e){
-      signupPhone=val;signupMethod='phone';
-      btn.disabled=false;btn.textContent='Login করো';
-      document.getElementById('loginForm').style.display='none';
-      document.getElementById('otpForm').style.display='block';
-      document.getElementById('otpIcon').textContent='📱';
-      document.getElementById('otpTitle').textContent='Phone verify করো';
-      document.getElementById('otpEmailShow').textContent=val+'-এ OTP SMS পাঠানো হয়েছে';
-      showAuthMsg('otpOk','SMS চেক করো — OTP পাঠানো হয়েছে');
-      return;
-    }
+    // Phone OTP login via TextBee Edge Function
+    const res=await fetch('https://mxflswnydksexbcitfnn.supabase.co/functions/v1/send-otp',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer sb_publishable_z_EGcA7YG6cplcyNvUQemQ_-fZHn6Fn'},
+      body:JSON.stringify({phone:val,action:'send'})
+    });
+    const data=await res.json();
+    btn.disabled=false;btn.textContent='Login করো';
+    if(!res.ok||data.error){showAuthMsg('loginErr',data.error||'SMS পাঠানো যায়নি');return;}
+    signupPhone=val;signupMethod='phone';
+    document.getElementById('loginForm').style.display='none';
+    document.getElementById('otpForm').style.display='block';
+    document.getElementById('otpIcon').textContent='📱';
+    document.getElementById('otpTitle').textContent='Phone verify করো';
+    document.getElementById('otpEmailShow').textContent=val+'-এ OTP SMS পাঠানো হয়েছে';
+    showAuthMsg('otpOk','SMS চেক করো — OTP পাঠানো হয়েছে');
+    return;
   } else {
     if(!pass){showAuthMsg('loginErr','Password দিন');btn.disabled=false;btn.textContent='Login করো';return;}
     const{error:e}=await sb.auth.signInWithPassword({email:val,password:pass});
@@ -793,9 +796,16 @@ async function doSignup(){
   if(signupMethod==='phone'){
     const phone=document.getElementById('signupPhone').value.trim();
     if(!phone||!phone.startsWith('+')){showAuthMsg('signupErr','Phone number দিন (+880...)');btn.disabled=false;btn.textContent='Account বানাও';return;}
-    const{error}=await sb.auth.signInWithOtp({phone,options:{data:{name}}});
+    // Save name for after OTP verify
+    localStorage.setItem('pendingPhoneName', name);
+    const res=await fetch('https://mxflswnydksexbcitfnn.supabase.co/functions/v1/send-otp',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer sb_publishable_z_EGcA7YG6cplcyNvUQemQ_-fZHn6Fn'},
+      body:JSON.stringify({phone,action:'send'})
+    });
+    const data=await res.json();
     btn.disabled=false;btn.textContent='Account বানাও';
-    if(error){showAuthMsg('signupErr',error.message);return;}
+    if(!res.ok||data.error){showAuthMsg('signupErr',data.error||'SMS পাঠানো যায়নি');return;}
     signupPhone=phone;signupEmail='';
     document.getElementById('signupForm').style.display='none';
     document.getElementById('otpForm').style.display='block';
@@ -841,30 +851,66 @@ async function doVerifyOTP(){
   if(!code||code.length<6){showAuthMsg('otpErr','OTP code দিন');return;}
   const btn=document.getElementById('otpBtn');
   btn.disabled=true;btn.textContent='Verify হচ্ছে...';
-  let error;
+
   if(signupMethod==='phone'){
-    const{error:e}=await sb.auth.verifyOtp({phone:signupPhone,token:code,type:'sms'});
-    error=e;
+    // Verify via Edge Function
+    const res=await fetch('https://mxflswnydksexbcitfnn.supabase.co/functions/v1/send-otp',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer sb_publishable_z_EGcA7YG6cplcyNvUQemQ_-fZHn6Fn'},
+      body:JSON.stringify({phone:signupPhone,otp:code,action:'verify'})
+    });
+    const data=await res.json();
+    if(!res.ok||data.error){
+      btn.disabled=false;btn.textContent='Verify করো';
+      showAuthMsg('otpErr',data.error||'OTP ভুল বা মেয়াদ শেষ');
+      return;
+    }
+    // OTP verified — now create/login Supabase user with magic link workaround
+    // Use a deterministic password based on phone for phone users
+    const phonePass = signupPhone.replace(/[^0-9]/g,'') + '_ht_phone_2024';
+    const name = localStorage.getItem('pendingPhoneName') || signupPhone;
+    // Try signup first (new user), if exists then login
+    const{data:sd,error:se}=await sb.auth.signUp({
+      email: signupPhone.replace('+','') + '@phone.healthtracker.app',
+      password: phonePass,
+      options:{data:{name, phone: signupPhone}}
+    });
+    if(se && !se.message.includes('already registered') && !se.message.includes('already exists')){
+      btn.disabled=false;btn.textContent='Verify করো';
+      showAuthMsg('otpErr',se.message);return;
+    }
+    // If already exists, login
+    const{error:le}=await sb.auth.signInWithPassword({
+      email: signupPhone.replace('+','') + '@phone.healthtracker.app',
+      password: phonePass
+    });
+    btn.disabled=false;btn.textContent='Verify করো';
+    if(le){showAuthMsg('otpErr','Login হয়নি — আবার চেষ্টা করো');return;}
+    localStorage.removeItem('pendingPhoneName');
+    showAuthMsg('otpOk','Verify হয়েছে! Login হচ্ছে...');
   } else {
-    const{error:e}=await sb.auth.verifyOtp({email:signupEmail,token:code,type:'email'});
-    error=e;
+    const{error}=await sb.auth.verifyOtp({email:signupEmail,token:code,type:'email'});
+    btn.disabled=false;btn.textContent='Verify করো';
+    if(error){showAuthMsg('otpErr','OTP ভুল বা মেয়াদ শেষ');return;}
+    showAuthMsg('otpOk','Verify হয়েছে! Login হচ্ছে...');
   }
-  btn.disabled=false;btn.textContent='Verify করো';
-  if(error){showAuthMsg('otpErr','OTP ভুল বা মেয়াদ শেষ');return;}
-  showAuthMsg('otpOk','Verify হয়েছে! Login হচ্ছে...');
 }
 
 async function resendOTP(){
-  let error;
   if(signupMethod==='phone'){
-    const{error:e}=await sb.auth.signInWithOtp({phone:signupPhone});
-    error=e;
+    const res=await fetch('https://mxflswnydksexbcitfnn.supabase.co/functions/v1/send-otp',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer sb_publishable_z_EGcA7YG6cplcyNvUQemQ_-fZHn6Fn'},
+      body:JSON.stringify({phone:signupPhone,action:'send'})
+    });
+    const data=await res.json();
+    if(!res.ok||data.error)showAuthMsg('otpErr',data.error||'SMS পাঠানো যায়নি');
+    else showAuthMsg('otpOk','নতুন OTP পাঠানো হয়েছে');
   } else {
-    const{error:e}=await sb.auth.resend({type:'signup',email:signupEmail});
-    error=e;
+    const{error}=await sb.auth.resend({type:'signup',email:signupEmail});
+    if(error)showAuthMsg('otpErr',error.message);
+    else showAuthMsg('otpOk','নতুন OTP পাঠানো হয়েছে');
   }
-  if(error)showAuthMsg('otpErr',error.message);
-  else showAuthMsg('otpOk','নতুন OTP পাঠানো হয়েছে');
 }
 
 async function doForgotPassword(){
