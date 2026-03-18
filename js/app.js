@@ -719,6 +719,10 @@ async function chgFQty(id,delta,e){
     else showToast(f.name+' সরানো হয়েছে');
   }
   await saveFood(id,next);
+  // Clear cache and reload to sync with DB
+  delete dayCache[curDate];
+  const fresh=await loadDayData(curDate);
+  updateMacros(fresh);renderFoodList(fresh);renderMealTabs(fresh);
 }
 
 async function delCF(id,e){
