@@ -623,6 +623,17 @@ function todayStr(){return new Date().toISOString().slice(0,10);}
 // INIT
 // ══════════════════════════════════════════
 async function init(){
+  const params=new URLSearchParams(window.location.search);
+  const tokenHash=params.get('token_hash');
+  const type=params.get('type');
+  if(tokenHash&&type){
+    const{data,error}=await sb.auth.verifyOtp({token_hash:tokenHash,type});
+    window.history.replaceState({},'',window.location.pathname);
+    if(!error&&data?.session){await onLogin(data.session.user);return;}
+    showScreen('auth');showAuthTab('login');
+    showAuthMsg('loginErr','Email verify সমস্যা হয়েছে — আবার login করুন');
+    return;
+  }
   const {data:{session}}=await sb.auth.getSession();
   if(session){await onLogin(session.user);}
   else{showScreen('auth');}
