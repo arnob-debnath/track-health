@@ -193,8 +193,8 @@ async function onLogin(user){
   if(localStorage.getItem('ht_water_notif')==='on'&&Notification.permission==='granted'){
     startWaterNotif();
   }
-  // Setup realtime subscriptions
-  setupRealtime();
+  // Setup realtime — delayed so it doesn't block app load
+  setTimeout(()=>setupRealtime(), 2000);
 }
 
 async function loadUserProfile(){
@@ -1273,28 +1273,28 @@ async function loadGlobalWorkouts(){
 let realtimeChannel = null;
 
 function setupRealtime(){
-  if(realtimeChannel){sb.removeChannel(realtimeChannel);realtimeChannel=null;}
-  realtimeChannel = sb.channel('ht-realtime')
-    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'messages',filter:`user_id=eq.${curUser.id}`},(payload)=>{
-      if(document.getElementById('v-messages').classList.contains('on'))renderMessages();
-      if(payload.new.admin_reply&&!payload.old.admin_reply){
-        showToast('Admin reply করেছেন!');
-        if(Notification.permission==='granted')new Notification('Health Tracker',{body:'Admin আপনার message-এ reply করেছেন!'});
-      }
-      if(payload.new.is_solved&&!payload.old.is_solved)showToast('আপনার message solved হয়েছে!');
-    })
-    .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages'},()=>{
-      if(isAdmin&&document.getElementById('v-admin').classList.contains('on')){renderAdmin();showToast('নতুন message এসেছে!');}
-    })
-    .on('postgres_changes',{event:'*',schema:'public',table:'global_foods'},async()=>{
-      globalFoodsCache=await loadGlobalFoods();
-      if(document.getElementById('v-food').classList.contains('on'))renderFood();
-    })
-    .on('postgres_changes',{event:'*',schema:'public',table:'global_workouts'},async()=>{
-      globalWorkoutsCache=await loadGlobalWorkouts();
-      if(document.getElementById('v-workout').classList.contains('on'))renderWorkout();
-    })
-    .subscribe();
+  try{
+    if(realtimeChannel){sb.removeChannel(realtimeChannel);realtimeChannel=null;}
+    realtimeChannel = sb.channel('ht-'+curUser.id)
+      .on('postgres_changes',{event:'UPDATE',schema:'public',table:'messages',filter:'user_id=eq.'+curUser.id},(payload)=>{
+        try{
+          if(document.getElementById('v-messages').classList.contains('on'))renderMessages();
+          if(payload.new.admin_reply&&!payload.old.admin_reply){
+            showToast('Admin reply করেছেন!');
+            if(Notification.permission==='granted')new Notification('Health Tracker',{body:'Admin reply করেছেন!'});
+          }
+          if(payload.new.is_solved&&!payload.old.is_solved)showToast('Message solved হয়েছে!');
+        }catch(e){}
+      })
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages'},()=>{
+        try{
+          if(isAdmin&&document.getElementById('v-admin').classList.contains('on')){renderAdmin();showToast('নতুন message!');}
+        }catch(e){}
+      })
+      .subscribe((status,err)=>{
+        if(err)console.log('Realtime error:',err);
+      });
+  }catch(e){console.log('Realtime setup failed:',e);}
 }
 
 // ══════════════════════════════════════════// PROFILE
