@@ -868,7 +868,7 @@ async function doVerifyOTP(){
     // OTP verified — create/login Supabase account using phone + password
     const name = localStorage.getItem('pendingPhoneName') || signupPhone;
     const savedPass = localStorage.getItem('pendingPhonePass') || '';
-    const phoneEmail = signupPhone.replace('+','') + '@ht.phone';
+    const phoneEmail = 'u' + signupPhone.replace(/[^0-9]/g,'') + '@healthtracker.app';
 
     // Try login first (returning user)
     const{data:ld, error:le}=await sb.auth.signInWithPassword({email:phoneEmail, password:savedPass});
